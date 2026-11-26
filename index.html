@@ -1,0 +1,3425 @@
+<!doctype html>
+<html lang="ko"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EARTH 2126 — 100년 후 지구 환경 변화 시뮬레이션</title>
+  <meta name="description" content="지구상의 특정 장소와 인간 행동이 25년·50년·75년·100년 후 대기질, 수질, 토양, 생물다양성, 온실가스에 미치는 영향을 3D 지구본과 시각화 비교로 탐색하세요.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Noto+Sans+KR:wght@400;500;600;700&amp;family=Outfit:wght@500;600;700&amp;display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    :root {
+      --bg-canvas: #061014;
+      --bg-panel: #0a1820;
+      --bg-sub: #08131a;
+      --bg-deep: #050d11;
+      --border-hairline: rgba(148, 163, 184, 0.16);
+      --border-strong: rgba(148, 163, 184, 0.28);
+      --text-primary: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-emerald: #10b981;
+      --accent-emerald-light: #34d399;
+      --accent-sky: #38bdf8;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --font-display: "Outfit", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      --font-sans: "Noto Sans KR", "Outfit", system-ui, -apple-system, sans-serif;
+      --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-family: var(--font-sans);
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      scroll-behavior: smooth;
+      color-scheme: dark;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    h1, h2, h3, .font-display {
+      font-family: var(--font-display);
+    }
+
+    .font-mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    button, input {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    button:focus-visible, input:focus-visible, a:focus-visible {
+      outline: 2px solid var(--accent-emerald);
+      outline-offset: 2px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #061014; }
+    ::-webkit-scrollbar-thumb { background: #17303b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #214554; }
+
+    /* Top Bar Contract: 3 zones */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(6, 16, 20, 0.95);
+      border-bottom: 1px solid var(--border-hairline);
+    }
+
+    .topbar-inner {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 0 14px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 768px) {
+      .topbar-inner {
+        padding: 0 20px;
+        gap: 32px;
+      }
+    }
+
+    .brand {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .nav-links {
+      display: none;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: color 0.18s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--accent-emerald-light);
+    }
+
+    .btn-primary {
+      background: var(--accent-emerald);
+      color: #03110c;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 9px 16px;
+      border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: background-color 0.16s ease;
+    }
+
+    .btn-primary:hover {
+      background: #34d399;
+    }
+
+    .btn-secondary {
+      background: var(--bg-panel);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-strong);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color 0.16s ease, color 0.16s ease;
+    }
+
+    .btn-secondary:hover {
+      background: #132834;
+      color: #ffffff;
+    }
+
+    /* Main Layout */
+    .container {
+      flex: 1;
+      max-width: 1380px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .section-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Hero Header */
+    .hero-header {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .hero-kicker {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .hero-title {
+      font-size: clamp(1.55rem, 2.8vw, 2.25rem);
+      font-weight: 600;
+      color: #ffffff;
+      line-height: 1.24;
+      letter-spacing: -0.02em;
+      max-width: 720px;
+      text-wrap: balance;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 12px 18px;
+      align-self: flex-start;
+    }
+
+    .summary-item-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .summary-item-val {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    /* Main Board Asymmetric Split */
+    .main-board-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    /* Globe Viewport */
+    .globe-card {
+      position: relative;
+      min-height: 430px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #globe-mount, #map2d-wrap {
+      width: 100%;
+      flex: 1;
+      min-height: 430px;
+      position: relative;
+    }
+
+    #map2d-wrap {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 76px 14px 66px;
+      background: #071620;
+    }
+
+    #map2d-canvas {
+      width: 100%;
+      height: auto;
+      max-height: 420px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      cursor: crosshair;
+      display: block;
+    }
+
+    .globe-hud-top {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 10;
+      pointer-events: none;
+      background: rgba(8, 21, 28, 0.92);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      padding: 10px 14px;
+      max-width: calc(100% - 28px);
+    }
+
+    .globe-hud-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .globe-hud-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .globe-dock {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      width: calc(100% - 24px);
+      max-width: 650px;
+      background: rgba(8, 21, 28, 0.94);
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .segmented {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px;
+      background: #0d1f29;
+      border: 1px solid var(--border-hairline);
+      border-radius: 8px;
+    }
+
+    .seg-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 11px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .seg-btn:hover { color: #ffffff; }
+    .seg-btn.active { background: var(--accent-emerald); color: #03110c; font-weight: 700; }
+    .seg-btn.active-amber { background: var(--accent-amber); color: #160e02; font-weight: 700; }
+
+    .hover-readout {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: none;
+    }
+
+    /* Configurator Aside */
+    .config-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .step-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-divider {
+      padding-top: 12px;
+      border-top: 1px solid var(--border-hairline);
+    }
+
+    .step-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .step-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .step-hint {
+      font-family: var(--font-mono);
+      font-size: 0.69rem;
+      color: var(--text-muted);
+    }
+
+    .search-wrap {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .input-field {
+      width: 100%;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      color: var(--text-primary);
+    }
+
+    .input-field.with-icon {
+      padding-left: 32px;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-emerald);
+    }
+
+    .location-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 138px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .choice-btn {
+      width: 100%;
+      text-align: left;
+      padding: 8px 11px;
+      border-radius: 8px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .choice-btn:hover {
+      border-color: var(--border-strong);
+    }
+
+    .choice-btn.selected-pos {
+      background: rgba(16, 185, 129, 0.14);
+      border-color: var(--accent-emerald-light);
+      color: #ffffff;
+    }
+
+    .choice-btn.selected-neg {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: var(--accent-amber);
+      color: #ffffff;
+    }
+
+    .action-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .qty-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qty-input {
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .qty-unit {
+      padding: 8px 12px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      border-radius: 8px;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .range-slider {
+      width: 100%;
+      accent-color: var(--accent-emerald);
+      cursor: pointer;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .preset-btn {
+      padding: 6px 4px;
+      border-radius: 6px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .preset-btn.active {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: var(--accent-sky);
+      color: #bae6fd;
+    }
+
+    /* Visual Comparison Stage */
+    .stage-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .section-header-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-kicker {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .section-title {
+      font-size: clamp(1.2rem, 2vw, 1.55rem);
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.015em;
+    }
+
+    .compare-slider-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 520px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-canvas);
+      user-select: none;
+      cursor: ew-resize;
+    }
+
+    .compare-side-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .side-frame {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-canvas);
+    }
+
+    .stage-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .clip-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .stage-scrim {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 108px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.42), transparent);
+      pointer-events: none;
+    }
+
+    .stage-tag-left, .stage-tag-right {
+      position: absolute;
+      top: 12px;
+      z-index: 10;
+      background: rgba(6, 16, 20, 0.88);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      pointer-events: none;
+    }
+
+    .stage-tag-left { left: 12px; }
+    .stage-tag-right { right: 12px; }
+
+    .stage-caption-bar {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: var(--text-primary);
+      pointer-events: none;
+    }
+
+    .slider-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.92);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .slider-knob {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #061014;
+      border: 2px solid #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Filmstrip Timeline Controls */
+    .timeline-box {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .timeline-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .filmstrip-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .thumb-card {
+      text-align: left;
+      border-radius: 8px;
+      border: 1px solid var(--border-hairline);
+      background: var(--bg-panel);
+      overflow: hidden;
+      transition: border-color 0.16s ease, background-color 0.16s ease;
+    }
+
+    .thumb-card:hover { border-color: var(--border-strong); }
+    .thumb-card.active-pos { border-color: var(--accent-emerald-light); background: rgba(16, 185, 129, 0.1); }
+    .thumb-card.active-neg { border-color: var(--accent-amber); background: rgba(245, 158, 11, 0.1); }
+
+    .thumb-canvas-wrap {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      background: #061014;
+    }
+
+    .thumb-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .thumb-meta {
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.74rem;
+    }
+
+    .progress-track {
+      height: 6px;
+      width: 100%;
+      background: #0f172a;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 99px;
+    }
+
+    /* Telemetry & Charts */
+    .legend-pill-bar {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      align-self: flex-start;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .metric-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .metric-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .metric-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .metric-sub {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .metric-delta {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      height: 7px;
+      width: 100%;
+      background: #0f172a;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.25s ease;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .chart-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .chart-scroll {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    /* Analysis & Provenance */
+    .interaction-banner {
+      background: var(--bg-sub);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      font-size: 0.76rem;
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .analysis-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .analysis-kicker {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .analysis-body {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .mitigation-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mitigation-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .provenance-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .provenance-card {
+      background: var(--bg-sub);
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .provenance-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-hairline);
+      font-size: 0.76rem;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-hairline);
+      background: var(--bg-deep);
+      margin-top: 24px;
+    }
+
+    .footer-inner {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    /* Semantic Utility Colors */
+    .c-emerald { color: #34d399; }
+    .c-sky { color: #38bdf8; }
+    .c-amber { color: #fbbf24; }
+    .c-rose { color: #fb7185; }
+    .c-teal { color: #2dd4bf; }
+
+    /* Responsive Breakpoints */
+    @media (min-width: 640px) {
+      .hover-readout { display: inline-flex; }
+      .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filmstrip-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .footer-inner { flex-direction: row; align-items: center; justify-content: space-between; }
+    }
+
+    @media (min-width: 768px) {
+      .nav-links { display: flex; }
+      .section-header-row { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+      .interaction-banner { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .analysis-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 1024px) {
+      .hero-header { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+      .main-board-grid { grid-template-columns: 7fr 5fr; }
+      .globe-card { min-height: 550px; }
+      #globe-mount, #map2d-wrap { min-height: 550px; }
+      .compare-side-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .charts-grid { grid-template-columns: 7fr 5fr; }
+      .provenance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 1280px) {
+      .main-board-grid { grid-template-columns: 8fr 4fr; }
+    }
+  </style>
+<script src="/_aistudio-iframe.js?v=29045eb3"></script><script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@2.0.4"></script><style>.aistudio-hover-highlight { box-shadow: inset 0 0 0 0.5px white, inset 0 0 0 1.5px rgba(128,128,128,0.6) !important; }.aistudio-active-highlight { outline: 2px solid #87a9ff !important; outline-offset: -2px !important; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.3), inset 0 0 0 0.5px rgba(0,0,0,0.3) !important; }.aistudio-generating-blur { filter: blur(5px) grayscale(100%) brightness(28%) !important; transition: filter 0.3s ease; }#aistudio-focus-mode-tag { position: absolute; display: none; align-items: center; gap: 4px; background: #87a9ff; border-radius: 12px; z-index: 10000; padding: 8px; color: #32302c; font-family: Inter, sans-serif; font-size: 14px; font-style: normal; font-weight: 500; line-height: 21px; pointer-events: none; }#aistudio-hover-mode-tag { position: absolute; display: none; align-items: center; gap: 4px; background: rgba(128,128,128,0.6); border-radius: 12px; z-index: 10000; padding: 8px; color: white; font-family: Inter, sans-serif; font-size: 14px; font-style: normal; font-weight: 500; line-height: 21px; pointer-events: none; }.aistudio-img-icon { display: none; vertical-align: middle; pointer-events: auto; cursor: pointer; }.aistudio-img-icon.visible { display: inline-flex; }#aistudio-focus-mode-tag .aistudio-img-icon { position: relative; width: 26px; height: 26px; background: #32302c; border-radius: 6px; margin: -4px -4px -4px 0; }#aistudio-focus-mode-tag .aistudio-img-icon::before { content: ""; position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; background-color: white; -webkit-mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); mask-size: contain; mask-repeat: no-repeat; }#aistudio-hover-mode-tag .aistudio-img-icon { position: relative; width: 18px; height: 18px; margin-left: 4px; }#aistudio-hover-mode-tag .aistudio-img-icon::before { content: ""; position: absolute; top: 0; left: 0; width: 18px; height: 18px; background-color: white; -webkit-mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); mask-size: contain; mask-repeat: no-repeat; }#aistudio-focus-mode-tag .aistudio-img-icon:hover, #aistudio-hover-mode-tag .aistudio-img-icon:hover { background: #424242 !important; }#aistudio-focus-mode-tag .aistudio-img-icon:active, #aistudio-hover-mode-tag .aistudio-img-icon:active { background: #393f51 !important; }</style></head>
+<body>
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#globe-board" class="brand">EARTH 2126</a>
+      <nav class="nav-links" aria-label="주요 메뉴">
+        <a href="#globe-board">지구본 탐색</a>
+        <a href="#visual-comparison">시각화 비교</a>
+        <a href="#data-analytics">데이터 분석</a>
+        <a href="#scientific-report">과학적 근거</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="download-html-btn" class="btn-secondary" title="현재 앱을 단일 index.html 파일로 다운로드">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span id="download-html-label">index.html 다운로드</span>
+        </button>
+        <button type="button" id="cta-jump-btn" class="btn-primary">시뮬레이션 보기</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Section 1: Hero & Main 3D Earth Board -->
+    <section id="globe-board" class="section-stack">
+      <div class="hero-header">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="hero-kicker">
+            <span>100년 장기 환경 변화 시뮬레이션</span>
+            <span aria-hidden="true">·</span>
+            <span id="hero-compat-label" class="c-emerald">표준 지역 민감도 (1.00×)</span>
+          </div>
+          <h1 class="hero-title">오늘 선택한 장소와 행동이 100년 뒤 지구를 어떻게 바꿀까요?</h1>
+        </div>
+
+        <div class="summary-strip">
+          <div>
+            <div class="summary-item-label">현재 지수 (2026)</div>
+            <div id="sum-base" class="summary-item-val c-sky">65.0</div>
+          </div>
+          <div>
+            <div class="summary-item-label">2126년 예상 지수</div>
+            <div id="sum-future" class="summary-item-val c-emerald">78.4</div>
+          </div>
+          <div>
+            <div class="summary-item-label">100년 변화폭</div>
+            <div id="sum-delta" class="summary-item-val c-emerald">+13.4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-board-grid">
+        <!-- Left: Interactive 3D Earth Globe & 2D World Map -->
+        <div class="globe-card">
+          <div class="globe-hud-top">
+            <div class="globe-hud-meta">
+              <span class="c-emerald">◎</span>
+              <span id="hud-region">대한민국 · 동아시아</span>
+              <span aria-hidden="true">·</span>
+              <span id="hud-coords" class="font-mono">37.6°, 127.0°</span>
+            </div>
+            <div id="hud-loc-name" class="globe-hud-name">한반도 중부 산림·수계권 (대한민국)</div>
+          </div>
+
+          <div id="globe-mount"></div>
+          <div id="map2d-wrap">
+            <canvas id="map2d-canvas" width="1280" height="640"></canvas>
+          </div>
+
+          <div class="globe-dock">
+            <div class="segmented">
+              <button type="button" id="mode-3d-btn" class="seg-btn active">3D 지구본</button>
+              <button type="button" id="mode-2d-btn" class="seg-btn">2D 세계지도</button>
+            </div>
+            <span id="globe-hover-coords" class="hover-readout">지구본 또는 지도를 클릭하여 위치 선택</span>
+            <div id="globe-cam-controls" style="display:flex;align-items:center;gap:6px;">
+              <button type="button" id="toggle-rotate-btn" class="btn-secondary">자전 중</button>
+              <button type="button" id="focus-cam-btn" class="btn-secondary">초점</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: 3-Step Configuration Panel -->
+        <aside class="config-card">
+          <!-- Step 1: Location -->
+          <div class="step-block">
+            <div class="step-label-row">
+              <label for="location-search" class="step-title">01. 장소 선택 (국가·지역 또는 지구본 클릭)</label>
+              <span id="loc-terrain-badge" class="step-hint">육상</span>
+            </div>
+            <div class="search-wrap">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              <input id="location-search" type="text" class="input-field with-icon" placeholder="국가 또는 지역 검색 (예: 대한민국, 아마존, 북극)">
+            </div>
+            <div id="location-list" class="location-list"></div>
+          </div>
+
+          <!-- Step 2: Action -->
+          <div class="step-block step-divider">
+            <div class="step-label-row">
+              <span class="step-title">02. 행동 선택</span>
+              <div class="segmented">
+                <button type="button" id="tab-pos-btn" class="seg-btn active">긍정적 행동</button>
+                <button type="button" id="tab-neg-btn" class="seg-btn">부정적 행동</button>
+              </div>
+            </div>
+            <div id="action-list" class="action-list"></div>
+          </div>
+
+          <!-- Step 3: Scale -->
+          <div class="step-block step-divider">
+            <div class="step-label-row">
+              <label for="quantity-input" class="step-title">03. 행동 규모 설정</label>
+              <span id="qty-range-hint" class="step-hint">10 ~ 1,000,000 그루</span>
+            </div>
+            <div class="qty-row">
+              <input id="quantity-input" type="number" class="input-field qty-input" value="5000">
+              <span id="qty-unit-badge" class="qty-unit">그루</span>
+            </div>
+            <input id="quantity-slider" type="range" min="0" max="100" step="0.5" value="50" class="range-slider" aria-label="행동 규모 슬라이더">
+            <div id="qty-presets" class="preset-grid"></div>
+          </div>
+
+          <button type="button" id="run-scroll-btn" class="btn-primary" style="width:100%;padding:11px 16px;">
+            100년 후 환경 변화 시각 비교 확인하기
+          </button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- Section 2: Visual Before / After Ecological Diorama -->
+    <section id="visual-comparison" class="stage-panel">
+      <div class="section-header-row">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="section-kicker">
+            <span>시각적 환경 변화 비교</span>
+            <span aria-hidden="true">·</span>
+            <span id="vis-climate-zone" class="c-sky">온대 대륙성 몬순</span>
+            <span aria-hidden="true">·</span>
+            <span id="vis-action-label">나무 심기 (5,000 그루)</span>
+          </div>
+          <h2 id="vis-heading" class="section-title">한반도 중부 산림·수계권: 현재(2026년) vs 2126년(100년 후)</h2>
+        </div>
+
+        <div class="segmented" style="align-self:flex-start;">
+          <button type="button" id="cmp-slider-btn" class="seg-btn active">슬라이더 비교</button>
+          <button type="button" id="cmp-side-btn" class="seg-btn">나란히 비교</button>
+        </div>
+      </div>
+
+      <!-- Slider Compare View -->
+      <div id="compare-slider-wrap" class="compare-slider-box">
+        <canvas id="future-canvas-slider" width="1280" height="720" class="stage-canvas" style="position:absolute;inset:0;"></canvas>
+        <div id="before-clip-layer" class="clip-layer" style="clip-path:inset(0 48% 0 0);">
+          <canvas id="before-canvas-slider" width="1280" height="720" class="stage-canvas"></canvas>
+        </div>
+        <div class="stage-scrim"></div>
+        <div class="stage-tag-left">
+          <strong>현재 환경 (0년 · 2026)</strong>
+          <span style="color:#64748b;margin:0 5px;">·</span>
+          <span id="tag-base-score" class="font-mono c-sky">건강지수 65.0</span>
+        </div>
+        <div class="stage-tag-right">
+          <strong id="tag-future-yr">100년 후 예상 (2126)</strong>
+          <span style="color:#64748b;margin:0 5px;">·</span>
+          <span id="tag-future-score" class="font-mono c-emerald">건강지수 78.4</span>
+        </div>
+        <div class="stage-caption-bar">
+          <span id="stage-narrative-text" style="max-width:780px;"></span>
+          <span class="font-mono" style="color:#cbd5e1;">좌우 드래그 비교</span>
+        </div>
+        <div id="split-divider-line" class="slider-line" style="left:52%;">
+          <div class="slider-knob">⇄</div>
+        </div>
+      </div>
+
+      <!-- Side-by-Side Compare View -->
+      <div id="compare-side-wrap" class="compare-side-grid" style="display:none;">
+        <div class="side-frame">
+          <canvas id="before-canvas-side" width="1280" height="720" class="stage-canvas"></canvas>
+          <div class="stage-scrim"></div>
+          <div class="stage-tag-left">
+            <strong>행동 전 · 현재 (2026년)</strong>
+            <span style="color:#64748b;margin:0 5px;">·</span>
+            <span id="side-base-score" class="font-mono c-sky">지수 65.0</span>
+          </div>
+          <div class="stage-caption-bar">
+            <span id="side-base-sub">대기질 62 · 수질 74</span>
+            <span id="side-base-bio" class="font-mono">생물다양성 61%</span>
+          </div>
+        </div>
+
+        <div class="side-frame">
+          <canvas id="future-canvas-side" width="1280" height="720" class="stage-canvas"></canvas>
+          <div class="stage-scrim"></div>
+          <div class="stage-tag-left">
+            <strong id="side-future-yr">100년 후 예상 (2126년)</strong>
+            <span style="color:#64748b;margin:0 5px;">·</span>
+            <span id="side-future-score" class="font-mono c-emerald">지수 78.4</span>
+          </div>
+          <div class="stage-caption-bar">
+            <span id="side-future-sub">대기질 80 · 수질 85</span>
+            <span id="side-future-bio" class="font-mono">생물다양성 80%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5-Step Filmstrip Timeline -->
+      <div class="timeline-box">
+        <div class="timeline-top">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button type="button" id="play-timeline-btn" class="btn-primary">100년 변화 재생</button>
+            <button type="button" id="reset-timeline-btn" class="btn-secondary">0년 초기화</button>
+          </div>
+          <div id="timeline-elapsed-label" class="font-mono" style="font-size:0.76rem;color:var(--text-muted);">
+            시점별 단계를 클릭하거나 전체 100년 변화를 재생하세요 (현재 100년 경과)
+          </div>
+        </div>
+
+        <div id="filmstrip-grid" class="filmstrip-grid"></div>
+
+        <div class="progress-track">
+          <div id="timeline-progress-fill" class="progress-fill" style="width:100%;background:#34d399;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: 6 Core Factors & Quantitative Charts -->
+    <section id="data-analytics" class="section-stack">
+      <div class="section-header-row">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div class="section-kicker">
+            <span>6대 핵심 환경 지표 변화</span>
+            <span aria-hidden="true">·</span>
+            <span id="metrics-year-label">2126년 (100년 후) 기준</span>
+          </div>
+          <h2 id="metrics-heading" class="section-title">현재 관측 기준선 vs 100년 후 시뮬레이션 추정</h2>
+        </div>
+        <div class="legend-pill-bar">
+          <span style="display:inline-flex;align-items:center;gap:6px;">
+            <span style="width:10px;height:10px;border-radius:2px;background:#38bdf8;display:inline-block;"></span>
+            <span>실제 기준 데이터 (2026)</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;">
+            <span id="legend-sim-swatch" style="width:10px;height:10px;border-radius:2px;background:#34d399;display:inline-block;"></span>
+            <span>가정 기반 시뮬레이션 (2051~2126)</span>
+          </span>
+        </div>
+      </div>
+
+      <div id="metrics-grid" class="metrics-grid"></div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+            <div>
+              <h3 style="font-size:1rem;font-weight:600;color:#fff;">100년 누적 환경 지수 변화 곡선 (0 ~ 100년)</h3>
+              <p style="font-size:0.75rem;color:var(--text-muted);">가정 시뮬레이션 모델 기준 · 그래프의 시점을 클릭하여 연도별 상태를 확인하세요.</p>
+            </div>
+            <div class="font-mono" style="font-size:0.74rem;background:var(--bg-canvas);border:1px solid var(--border-hairline);border-radius:6px;padding:5px 10px;">
+              누적 온실가스 변화: <span id="chart-ghg-total" class="c-emerald">-1,200 tCO₂e</span>
+            </div>
+          </div>
+          <div class="chart-scroll">
+            <svg id="trajectory-svg" viewBox="0 0 620 260" style="width:100%;min-width:460px;height:auto;" role="img" aria-label="100년 환경 지표 변화 그래프"></svg>
+          </div>
+          <div id="trajectory-legend" style="display:flex;flex-wrap:wrap;gap:14px;font-size:0.74rem;color:var(--text-secondary);padding-top:8px;border-top:1px solid var(--border-hairline);"></div>
+        </div>
+
+        <div class="chart-card">
+          <div>
+            <h3 id="radar-title" style="font-size:1rem;font-weight:600;color:#fff;">생태계 균형 다각 비교 (0년 vs 100년 후)</h3>
+            <p style="font-size:0.75rem;color:var(--text-muted);">외곽에 가까울수록 해당 환경 요소가 건강하게 유지됨을 의미합니다.</p>
+          </div>
+          <div style="display:flex;justify-content:center;">
+            <svg id="radar-svg" viewBox="0 0 270 270" style="width:100%;max-width:270px;height:auto;" role="img" aria-label="현재와 미래 6대 지표 레이더 차트"></svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;color:var(--text-secondary);padding-top:8px;border-top:1px solid var(--border-hairline);">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:12px;height:2px;background:#38bdf8;display:inline-block;"></span>현재(2026)</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;"><span id="radar-future-line" style="width:12px;height:2px;background:#10b981;display:inline-block;"></span><span id="radar-future-label">예상(2126)</span></span>
+            </div>
+            <span id="radar-co2-label" class="font-mono" style="color:var(--text-muted);">CO₂ 420.0 ppm</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Scientific Analysis & Data Provenance -->
+    <section id="scientific-report" class="section-stack">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div class="section-kicker">
+          <span>종합 환경 영향 분석 및 과학적 근거</span>
+          <span aria-hidden="true">·</span>
+          <span id="rep-loc-label">한반도 중부 산림·수계권</span>
+          <span aria-hidden="true">·</span>
+          <span>실측 기준 vs 가정 시뮬레이션 구분</span>
+        </div>
+        <h2 class="section-title">100년 환경 변화 심층 분석 보고서</h2>
+      </div>
+
+      <div class="interaction-banner">
+        <div>
+          <div style="color:var(--text-muted);margin-bottom:3px;">지역 × 행동 상호작용 보정</div>
+          <div id="banner-compat" style="font-size:0.9rem;font-weight:600;color:#fff;">표준 지역 민감도 (1.00×)</div>
+        </div>
+        <div>
+          <div style="color:var(--text-muted);margin-bottom:3px;">지역 생태 민감도 · 탄소 계수</div>
+          <div id="banner-multipliers" class="font-mono c-sky" style="font-size:0.9rem;">생태 반응 1.00× · 탄소 가중 1.00×</div>
+        </div>
+        <div>
+          <div style="color:var(--text-muted);margin-bottom:3px;">지역 핵심 지표종</div>
+          <div id="banner-species" class="c-emerald" style="font-size:0.88rem;">산천어 · 수달 · 소나무 군락</div>
+        </div>
+      </div>
+
+      <div class="analysis-grid">
+        <article class="analysis-card">
+          <div class="analysis-kicker c-emerald">01. 선택한 행동이 환경에 미치는 영향</div>
+          <p id="rep-impact" class="analysis-body"></p>
+        </article>
+        <article class="analysis-card">
+          <div class="analysis-kicker c-sky">02. 100년 후(2126년) 예상되는 환경 변화</div>
+          <p id="rep-2126" class="analysis-body"></p>
+        </article>
+        <article class="analysis-card">
+          <div class="analysis-kicker c-teal">03. 해당 지역의 생태계에 미칠 영향</div>
+          <p id="rep-ecosystem" class="analysis-body"></p>
+        </article>
+        <article class="analysis-card">
+          <div class="analysis-kicker c-emerald">04. 환경 변화를 막거나 개선하기 위한 방법</div>
+          <ul id="rep-mitigation" class="mitigation-list"></ul>
+        </article>
+      </div>
+
+      <div id="scientific-basis" class="provenance-grid">
+        <div class="provenance-card" style="border-color:rgba(14,165,233,0.32);">
+          <div class="c-sky" style="font-size:0.88rem;font-weight:600;">실제 환경 기준 데이터 (Observed Baseline)</div>
+          <p id="prov-desc" style="font-size:0.78rem;color:var(--text-secondary);line-height:1.6;"></p>
+          <div class="provenance-meta-grid">
+            <div>
+              <span style="color:var(--text-muted);display:block;">기후·생태구</span>
+              <span id="prov-climate" style="color:var(--text-primary);font-weight:500;"></span>
+            </div>
+            <div>
+              <span style="color:var(--text-muted);display:block;">전 지구 대기 CO₂ 기준</span>
+              <span id="prov-co2" class="font-mono c-sky">426 ppm</span>
+            </div>
+            <div style="grid-column:span 2;">
+              <span style="color:var(--text-muted);display:block;">참조 출처 프로파일</span>
+              <span id="prov-ref" style="color:var(--text-secondary);"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="provenance-card" style="border-color:rgba(16,185,129,0.32);">
+          <div class="c-emerald" style="font-size:0.88rem;font-weight:600;">시뮬레이션 가정 및 예측 한계 (Model Assumptions)</div>
+          <ul id="prov-assumptions" style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:0.78rem;color:var(--text-secondary);line-height:1.55;"></ul>
+          <p style="font-size:0.74rem;color:var(--text-muted);padding-top:8px;border-top:1px solid var(--border-hairline);line-height:1.55;">
+            안내: 미래 25~100년 수치는 복합 기후 피드백, 정책 변화, 자연재해 등 외생 변수를 통제한 상태에서 선택한 행동의 누적 효과를 추정한 가상 시뮬레이션 결과입니다.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong style="color:var(--text-primary);">EARTH 2126</strong>
+        <span style="margin:0 8px;">·</span>
+        <span>과학적 기준선과 생태 모델 가정을 바탕으로 100년 후 환경 변화를 시각화하는 시뮬레이션 플랫폼</span>
+      </div>
+      <div style="color:var(--text-dim);">실제 관측 기준치(2026)와 가정 기반 예측치(2051~2126)는 모든 지표에 분리 표기됩니다.</div>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    'use strict';
+    var PRISTINE_HTML = '<!doctype html>\n' + document.documentElement.outerHTML;
+
+    /* =========================================================================
+     * 1. WORLD GEOGRAPHIC POLYGONS & PRESET LOCATIONS WITH OBSERVED BASELINES
+     * ========================================================================= */
+    var LAND_POLYGONS = [
+      { name: 'North America', coords: [[-168,66],[-162,71],[-140,70],[-125,72],[-105,74],[-85,72],[-75,68],[-60,62],[-55,52],[-66,44],[-74,40],[-81,30],[-81,25],[-88,28],[-97,26],[-96,19],[-87,21],[-83,10],[-78,8],[-85,11],[-92,15],[-105,20],[-110,24],[-117,32],[-124,40],[-125,49],[-136,58],[-152,60],[-164,55]] },
+      { name: 'Greenland', coords: [[-55,60],[-44,60],[-32,68],[-20,76],[-25,82],[-50,82],[-68,77],[-54,70]] },
+      { name: 'South America', coords: [[-78,9],[-72,12],[-62,10],[-50,1],[-35,-6],[-39,-15],[-42,-23],[-48,-28],[-54,-34],[-62,-41],[-67,-50],[-69,-55],[-74,-52],[-73,-42],[-71,-30],[-70,-18],[-77,-12],[-81,-5],[-79,2]] },
+      { name: 'Africa', coords: [[-17,15],[-13,28],[-6,36],[10,37],[12,33],[25,32],[33,31],[40,16],[43,12],[51,12],[45,2],[40,-10],[35,-24],[28,-33],[18,-35],[14,-22],[12,-10],[9,4],[2,6],[-8,5],[-16,11]] },
+      { name: 'Madagascar', coords: [[49,-12],[50,-18],[47,-25],[44,-25],[44,-17]] },
+      { name: 'Europe & Eurasia', coords: [[-9,37],[-9,43],[-2,44],[-4,48],[2,51],[8,54],[9,57],[5,61],[15,68],[28,71],[42,68],[60,70],[75,73],[105,77],[135,72],[170,68],[178,66],[162,59],[156,51],[142,54],[136,45],[130,42],[129,35],[126,35],[126,38],[122,40],[118,39],[122,31],[116,23],[108,21],[109,12],[104,10],[103,2],[99,8],[96,16],[90,22],[80,14],[77,8],[72,20],[67,25],[57,25],[50,29],[56,23],[54,17],[44,13],[35,29],[36,36],[27,37],[26,41],[23,38],[19,40],[14,45],[15,38],[10,44],[3,42],[-5,36]] },
+      { name: 'United Kingdom', coords: [[-6,50],[1,51],[1,53],[-2,58],[-6,57],[-5,53]] },
+      { name: 'Japan', coords: [[130,32],[136,34],[141,38],[145,44],[141,45],[139,40],[134,36]] },
+      { name: 'Sumatra & Java', coords: [[95,5],[105,-5],[114,-8],[114,-9],[105,-7],[97,2]] },
+      { name: 'Borneo', coords: [[109,1],[117,6],[118,1],[115,-4],[110,-3]] },
+      { name: 'Australia', coords: [[114,-22],[122,-17],[131,-12],[136,-12],[142,-11],[146,-18],[153,-27],[150,-36],[144,-39],[136,-35],[128,-32],[115,-34],[114,-28]] },
+      { name: 'New Zealand', coords: [[173,-35],[178,-38],[174,-42],[167,-46],[171,-41]] },
+      { name: 'Antarctica', coords: [[-180,-72],[-120,-74],[-60,-64],[-40,-75],[0,-70],[60,-68],[120,-67],[170,-72],[180,-72],[180,-90],[-180,-90]] }
+    ];
+
+    var PRESET_LOCATIONS = [
+      {
+        id: 'korea-capital',
+        nameKo: '한반도 중부 산림·수계권 (대한민국)',
+        countryOrRegion: '대한민국 · 동아시아',
+        lat: 37.56, lng: 127.0, biome: 'temperate', isOcean: false,
+        keySpecies: '산천어 · 수달 · 소나무 · 신갈나무 군락',
+        ecologicalCharacter: '고밀도 수도권과 한강 유역, 온대 활엽·침엽 혼합림이 인접해 대기오염·도시열섬 관리가 핵심인 지대',
+        description: '고밀도 도시권과 온대 활엽·침엽 혼합림, 한강 수계가 공존하는 동아시아 온대 유역입니다.',
+        observedBaseline: { airQualityIndex: 62, pm25UgM3: 21.4, waterQualityIndex: 74, dissolvedOxygenMgL: 8.1, soilHealthIndex: 68, soilOrganicCarbonPct: 2.6, biodiversityIndex: 61, ecosystemResilience: 65, baselineAnnualGhgTonsPerKm2: 1420, ambientCo2Ppm: 426, climateZone: '온대 대륙성 몬순 (Dwa/Cfa)', dataReferenceNote: '국립환경과학원·OECD 도시권 대기/수질 기준치 기반 참조 프로파일' }
+      },
+      {
+        id: 'korea-east-sea',
+        nameKo: '동해 연안 해역 (대한민국)',
+        countryOrRegion: '동해 · 북서태평양',
+        lat: 36.8, lng: 130.2, biome: 'ocean', isOcean: true,
+        keySpecies: '명태 · 오징어 · 참돌고래 · 다시마/감태 군락',
+        ecologicalCharacter: '리만 한류와 동한 난류가 교차하는 깊은 수심의 반폐쇄성 해역으로 해양 폐기물·수온 변화에 민감',
+        description: '한류와 난류가 교차하는 심해 연안으로, 수온 상승과 해양 폐기물 유입에 민감한 어업 해역입니다.',
+        observedBaseline: { airQualityIndex: 82, pm25UgM3: 11.2, waterQualityIndex: 79, dissolvedOxygenMgL: 7.8, soilHealthIndex: 75, soilOrganicCarbonPct: 1.8, biodiversityIndex: 73, ecosystemResilience: 72, baselineAnnualGhgTonsPerKm2: -180, ambientCo2Ppm: 425, climateZone: '온대 해양 해류 교차역', dataReferenceNote: '국립수산과학원 동해 연안 표층수·용존산소 기준 프로파일' }
+      },
+      {
+        id: 'amazon-basin',
+        nameKo: '아마존 열대우림 분지 (브라질)',
+        countryOrRegion: '브라질 · 남아메리카',
+        lat: -3.46, lng: -62.21, biome: 'forest', isOcean: false,
+        keySpecies: '재규어 · 아마존강돌고래 · 마코앵무 · 브라질너트나무',
+        ecologicalCharacter: '자체 증발산으로 강수를 만드는 거대 탄소 저장고로, 일정 면적 이상 벌채 시 사바나화 티핑포인트 위험',
+        description: '지구 육상 생물다양성의 약 10%와 거대한 탄소 저장고를 보유한 핵심 열대우림 생태계입니다.',
+        observedBaseline: { airQualityIndex: 88, pm25UgM3: 7.5, waterQualityIndex: 84, dissolvedOxygenMgL: 7.4, soilHealthIndex: 82, soilOrganicCarbonPct: 4.8, biodiversityIndex: 91, ecosystemResilience: 84, baselineAnnualGhgTonsPerKm2: -850, ambientCo2Ppm: 425, climateZone: '열대 우림 기후 (Af)', dataReferenceNote: 'FAO/INPE 열대우림 탄소밀도 및 BII 생물다양성 지수 참조' }
+      },
+      {
+        id: 'great-barrier-reef',
+        nameKo: '그레이트 배리어 리프 (호주)',
+        countryOrRegion: '호주 · 산호해',
+        lat: -18.28, lng: 147.69, biome: 'ocean', isOcean: true,
+        keySpecies: '경산호 군락 · 푸른바다거북 · 듀공 · 흰동가리',
+        ecologicalCharacter: '열대 천해 산호초 지대로 수질 탁도 상승·화학물질 유입·해수 산성화 시 대규모 백화 현상이 즉각 촉발',
+        description: '세계 최대 산호초 군락지로서 해양 산성화, 수온 상승 및 연안 오염 물질에 극도로 민감합니다.',
+        observedBaseline: { airQualityIndex: 92, pm25UgM3: 5.4, waterQualityIndex: 81, dissolvedOxygenMgL: 7.1, soilHealthIndex: 78, soilOrganicCarbonPct: 1.4, biodiversityIndex: 86, ecosystemResilience: 69, baselineAnnualGhgTonsPerKm2: -120, ambientCo2Ppm: 424, climateZone: '열대 산호해 해양 생태구', dataReferenceNote: 'AIMS 산호초 피복률·표층 수질 모니터링 기준 프로파일' }
+      },
+      {
+        id: 'pacific-gyre',
+        nameKo: '북태평양 아열대 환류 (공해)',
+        countryOrRegion: '북태평양 · 공해',
+        lat: 35.0, lng: -145.0, biome: 'ocean', isOcean: true,
+        keySpecies: '알바트로스 · 붉은바다거북 · 표영성 플랑크톤 · 참다랑어',
+        ecologicalCharacter: '환류 소용돌이로 인해 부유 폐기물이 외부로 배출되지 않고 수십~수백 년간 수렴·축적되는 원양 지대',
+        description: '해류가 순환하며 미세플라스틱과 부유 해양 쓰레기가 집중 축적되는 대표적 원양 해역입니다.',
+        observedBaseline: { airQualityIndex: 90, pm25UgM3: 6.1, waterQualityIndex: 52, dissolvedOxygenMgL: 6.6, soilHealthIndex: 60, soilOrganicCarbonPct: 0.9, biodiversityIndex: 54, ecosystemResilience: 51, baselineAnnualGhgTonsPerKm2: -95, ambientCo2Ppm: 425, climateZone: '아열대 해양 환류대', dataReferenceNote: 'UNEP·NOAA 원양 표층 미세플라스틱 밀도 기준 프로파일' }
+      },
+      {
+        id: 'sundarbans-wetland',
+        nameKo: '순다르반스 맹그로브 습지 (방글라데시·인도)',
+        countryOrRegion: '남아시아 · 벵골만 삼각주',
+        lat: 21.95, lng: 89.18, biome: 'wetland', isOcean: false,
+        keySpecies: '벵골호랑이 · 이라와디돌고래 · 바다악어 · 맹그로브 숲',
+        ecologicalCharacter: '기수 퇴적층에 막대한 블루카본을 가두고 사이클론 해일을 완충하는 세계 최대 조간대 맹그로브 삼각주',
+        description: '세계 최대 맹그로브 블루카본 습지로 해일 완충, 수질 정화, 멸종위기종 서식처 역할을 수행합니다.',
+        observedBaseline: { airQualityIndex: 58, pm25UgM3: 28.5, waterQualityIndex: 63, dissolvedOxygenMgL: 6.2, soilHealthIndex: 79, soilOrganicCarbonPct: 6.4, biodiversityIndex: 82, ecosystemResilience: 71, baselineAnnualGhgTonsPerKm2: -620, ambientCo2Ppm: 427, climateZone: '열대 몬순 연안 기수 습지', dataReferenceNote: 'UNESCO·IPCC 블루카본 맹그로브 퇴적 탄소 기준 프로파일' }
+      },
+      {
+        id: 'sahel-belt',
+        nameKo: '사헬 반건조 초원 벨트 (세네갈·니제르)',
+        countryOrRegion: '서아프리카 · 사헬',
+        lat: 14.5, lng: -2.0, biome: 'arid', isOcean: false,
+        keySpecies: '아카시아 수목 · 사막여우 · 가젤 · 뿔닭·철새',
+        ecologicalCharacter: '사하라 남단 사막화 저지선으로, 식생 피복 회복 시 토양 수분·강우 순환이 되살아나고 훼손 시 즉시 모래 사막화 진행',
+        description: '사막화 최전선 지대로 식생 복원과 토양 수분 보존 여부에 따라 생태계 회복과 황폐화가 극명히 갈립니다.',
+        observedBaseline: { airQualityIndex: 54, pm25UgM3: 34.2, waterQualityIndex: 49, dissolvedOxygenMgL: 5.9, soilHealthIndex: 41, soilOrganicCarbonPct: 0.7, biodiversityIndex: 52, ecosystemResilience: 44, baselineAnnualGhgTonsPerKm2: 180, ambientCo2Ppm: 425, climateZone: '열대 반건조 스텝 (BSh)', dataReferenceNote: 'UNCCD 사막화 취약지 토양 유기탄소 및 강수 편차 기준 프로파일' }
+      },
+      {
+        id: 'rhine-basin',
+        nameKo: '라인강 산업·온대 유역 (독일)',
+        countryOrRegion: '독일 · 서유럽',
+        lat: 50.94, lng: 6.96, biome: 'temperate', isOcean: false,
+        keySpecies: '대서양연어 · 유럽비버 · 참나무·너도밤나무 숲',
+        ecologicalCharacter: '과거 중화학 오염에서 정화 복원을 거친 내륙 하천 회랑으로, 산업 배출 규제와 재생에너지 전환 민감도가 높음',
+        description: '유럽 핵심 내륙 수운·산업 회랑으로, 재생에너지 전환과 생태 복원의 정책 효과가 뚜렷하게 나타나는 지역입니다.',
+        observedBaseline: { airQualityIndex: 71, pm25UgM3: 13.8, waterQualityIndex: 76, dissolvedOxygenMgL: 8.6, soilHealthIndex: 70, soilOrganicCarbonPct: 2.9, biodiversityIndex: 63, ecosystemResilience: 69, baselineAnnualGhgTonsPerKm2: 1180, ambientCo2Ppm: 426, climateZone: '서안 해양성 온대 기후 (Cfb)', dataReferenceNote: 'EEA 유럽환경청 대기질·하천 생태 회복 기준 프로파일' }
+      },
+      {
+        id: 'congo-basin',
+        nameKo: '콩고 분지 이탄 습지림 (콩고민주공화국)',
+        countryOrRegion: '중앙아프리카',
+        lat: -0.5, lng: 18.5, biome: 'wetland', isOcean: false,
+        keySpecies: '보노보 · 둥근귀코끼리 · 아프리카회색앵무 · 이탄습지림',
+        ecologicalCharacter: '수 미터 깊이의 열대 이탄층에 약 300억 톤의 탄소를 저장 중이며, 건조화·벌채 시 막대한 토양 탄소가 대기 중 방출',
+        description: '수천 년간 축적된 열대 이탄지 탄소 저장고와 원시 우림이 결합된 지구 제2의 생태 허파입니다.',
+        observedBaseline: { airQualityIndex: 86, pm25UgM3: 9.2, waterQualityIndex: 81, dissolvedOxygenMgL: 6.9, soilHealthIndex: 88, soilOrganicCarbonPct: 9.2, biodiversityIndex: 89, ecosystemResilience: 83, baselineAnnualGhgTonsPerKm2: -740, ambientCo2Ppm: 425, climateZone: '적도 이탄습지 열대우림', dataReferenceNote: 'UNEP 글로벌 이탄지 평가 보고서 기준 프로파일' }
+      },
+      {
+        id: 'arctic-svalbard',
+        nameKo: '스발바르 북극 해빙 연안 (노르웨이)',
+        countryOrRegion: '북극해 · 스발바르',
+        lat: 78.22, lng: 15.65, biome: 'polar', isOcean: true,
+        keySpecies: '북극곰 · 일각고래 · 바다코끼리 · 빙하 미세조류',
+        ecologicalCharacter: '극지 증폭과 영구동토층·해빙 알베도 피드백 때문에 온실가스·검댕 배출 피해가 타 지역 대비 1.6~1.8배 증폭',
+        description: '지구 평균보다 3~4배 빠르게 온난화가 진행되는 극지 해역으로, 온실가스 배출 변화에 알베도가 민감하게 반응합니다.',
+        observedBaseline: { airQualityIndex: 96, pm25UgM3: 3.1, waterQualityIndex: 91, dissolvedOxygenMgL: 11.2, soilHealthIndex: 64, soilOrganicCarbonPct: 3.4, biodiversityIndex: 68, ecosystemResilience: 56, baselineAnnualGhgTonsPerKm2: -45, ambientCo2Ppm: 428, climateZone: '극지 툰드라·해빙 연안 (ET)', dataReferenceNote: 'AMAP 북극기후영향평가 해빙·용존산소 기준 프로파일' }
+      },
+      {
+        id: 'california-coast',
+        nameKo: '캘리포니아 용승 연안 (미국)',
+        countryOrRegion: '미국 서부 · 동태평양',
+        lat: 36.6, lng: -122.0, biome: 'ocean', isOcean: true,
+        keySpecies: '해달 · 거대다시마(켈프) · 혹등고래 · 정어리 군집',
+        ecologicalCharacter: '심해 냉수 용승이 거대 켈프(다시마) 숲을 지탱하는 해역으로, 연안 수질 정화 및 켈프 복원 시 탄소 흡수 효율이 높음',
+        description: '영양염이 풍부한 연안 용승대와 다시마 숲이 발달한 지역으로, 수질오염과 해수 온난화 관리가 핵심입니다.',
+        observedBaseline: { airQualityIndex: 76, pm25UgM3: 10.4, waterQualityIndex: 80, dissolvedOxygenMgL: 7.9, soilHealthIndex: 72, soilOrganicCarbonPct: 2.1, biodiversityIndex: 79, ecosystemResilience: 74, baselineAnnualGhgTonsPerKm2: -150, ambientCo2Ppm: 425, climateZone: '지중해성 한류 연안 해역', dataReferenceNote: 'NOAA 캘리포니아 해류 생태계 모니터링 기준 프로파일' }
+      },
+      {
+        id: 'boreal-canada',
+        nameKo: '캐나다 아한대 침엽수림 (캐나다)',
+        countryOrRegion: '캐나다 · 북아메리카',
+        lat: 56.1, lng: -106.3, biome: 'forest', isOcean: false,
+        keySpecies: '회색늑대 · 순록(카리부) · 가문비나무 · 빙하호 연어',
+        ecologicalCharacter: '한랭 기후로 분해 속도가 느려 토양 유기탄소 비중이 극도로 높으며, 벌채·산불 시 장기 탄소 손실이 큼',
+        description: '광활한 타이가 침엽수림과 빙하호가 분포하며 토양 탄소 저장 비중이 매우 높은 북방 산림 지대입니다.',
+        observedBaseline: { airQualityIndex: 91, pm25UgM3: 5.8, waterQualityIndex: 89, dissolvedOxygenMgL: 9.8, soilHealthIndex: 84, soilOrganicCarbonPct: 7.1, biodiversityIndex: 76, ecosystemResilience: 78, baselineAnnualGhgTonsPerKm2: -410, ambientCo2Ppm: 426, climateZone: '아한대 타이가 기후 (Dfc)', dataReferenceNote: 'NRCan 캐나다 북방산림 탄소수지 보고서 기준 프로파일' }
+      }
+    ];
+
+    function pointInRing(lng, lat, ring) {
+      var inside = false;
+      for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        var xi = ring[i][0], yi = ring[i][1];
+        var xj = ring[j][0], yj = ring[j][1];
+        var intersect = ((yi > lat) !== (yj > lat)) && (lng < ((xj - xi) * (lat - yi)) / (yj - yi + 1e-9) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function isCoordinateLand(lat, lng) {
+      for (var i = 0; i < LAND_POLYGONS.length; i++) {
+        if (pointInRing(lng, lat, LAND_POLYGONS[i].coords)) return true;
+      }
+      return false;
+    }
+
+    function classifyCoordinates(lat, lng) {
+      var clampedLat = Math.max(-85, Math.min(85, Number(lat.toFixed(2))));
+      var normalizedLng = Number((((((lng + 180) % 360) + 360) % 360) - 180).toFixed(2));
+      var isLand = isCoordinateLand(clampedLat, normalizedLng);
+      var absLat = Math.abs(clampedLat);
+
+      if (!isLand) {
+        var oceanName = clampedLat > 66 ? '북극해 (Arctic Ocean)' : clampedLat < -60 ? '남극해 (Southern Ocean)' : (normalizedLng >= 20 && normalizedLng <= 146 && clampedLat < 30) ? '인도양 (Indian Ocean)' : (normalizedLng > -70 && normalizedLng < 20) ? (clampedLat >= 0 ? '북대서양 (North Atlantic Ocean)' : '남대서양 (South Atlantic Ocean)') : (clampedLat >= 0 ? '북태평양 (North Pacific Ocean)' : '남태평양 (South Pacific Ocean)');
+        var biome = absLat > 62 ? 'polar' : 'ocean';
+        var isTropical = absLat < 24;
+        return {
+          id: 'custom-' + clampedLat + '-' + normalizedLng,
+          nameKo: oceanName.split(' ')[0] + ' 선택 해역 (' + clampedLat.toFixed(1) + '°, ' + normalizedLng.toFixed(1) + '°)',
+          countryOrRegion: oceanName,
+          lat: clampedLat, lng: normalizedLng, biome: biome, isOcean: true, isCustomClick: true,
+          keySpecies: biome === 'polar' ? '극지 해빙 플랑크톤 · 대구 · 물범 · 바닷새' : isTropical ? '산호초 군집 · 바다거북 · 다랑어 · 표층 플랑크톤' : '고래류 · 회유성 어류 · 해조류 · 표영 생태군',
+          ecologicalCharacter: biome === 'polar' ? '고위도 극지 해역으로 해빙 알베도와 냉수 용존산소 변화에 민감합니다.' : isTropical ? '저위도 난류 해역으로 수온·화학적 수질 오염과 산호·어류 서식지 손실에 민감합니다.' : '온대 해류 순환역으로 부유 폐기물 확산 및 표층 일차생산력 변화가 나타납니다.',
+          description: '지도에서 직접 선택한 위도 ' + clampedLat.toFixed(1) + '°, 경도 ' + normalizedLng.toFixed(1) + '° 지점의 해양 생태계입니다.',
+          observedBaseline: {
+            airQualityIndex: 91, pm25UgM3: 5.8,
+            waterQualityIndex: absLat > 60 ? 90 : isTropical ? 78 : 74,
+            dissolvedOxygenMgL: absLat > 60 ? 10.6 : isTropical ? 6.8 : 7.5,
+            soilHealthIndex: 70, soilOrganicCarbonPct: 1.2,
+            biodiversityIndex: isTropical ? 83 : absLat > 60 ? 64 : 71,
+            ecosystemResilience: isTropical ? 68 : 73,
+            baselineAnnualGhgTonsPerKm2: biome === 'polar' ? -55 : -145,
+            ambientCo2Ppm: 425,
+            climateZone: biome === 'polar' ? '극지 해역' : isTropical ? '열대·아열대 해역' : '온대 원양·연안 해역',
+            dataReferenceNote: '위도대별 WMO·NOAA 해양 표층 기준 모델로 추정한 관측 기준선'
+          }
+        };
+      }
+
+      var regionName = (clampedLat >= 33 && clampedLat <= 43 && normalizedLng >= 124 && normalizedLng <= 131) ? '한반도 (대한민국·주변역)' :
+        (clampedLat >= 30 && clampedLat <= 46 && normalizedLng >= 129 && normalizedLng <= 146) ? '일본 열도 · 동아시아' :
+        (clampedLat > 10 && normalizedLng >= 60 && normalizedLng <= 145) ? '아시아 대륙' :
+        (clampedLat > 35 && normalizedLng >= -12 && normalizedLng < 60) ? '유럽 · 지중해권' :
+        (clampedLat >= -36 && clampedLat <= 37 && normalizedLng >= -18 && normalizedLng <= 52) ? '아프리카 대륙' :
+        (clampedLat >= 12 && normalizedLng >= -170 && normalizedLng <= -52) ? '북아메리카' :
+        (clampedLat < 12 && clampedLat >= -56 && normalizedLng >= -83 && normalizedLng <= -34) ? '남아메리카' :
+        (clampedLat <= -10 && clampedLat >= -48 && normalizedLng >= 112 && normalizedLng <= 179) ? '오세아니아' :
+        clampedLat < -60 ? '남극 대륙' : '육상 생태권';
+
+      var biomeL = 'temperate', climateZone = '온대 육상 생태계', keySpecies = '참나무류 · 맹금류 · 하천 어류 · 소형 포유류';
+      var ecologicalCharacter = '사계절 기온 교차가 뚜렷한 온대 유역으로 식생 복원 및 대기·수질 관리 반응성이 균형 잡혀 있습니다.';
+      var baseBiodiv = 68, baseSoil = 70, baseSoc = 3.1, baseWater = 75, baseAir = 72, basePm25 = 15.0, baseGhg = -140;
+
+      if (absLat > 64) {
+        biomeL = 'polar'; climateZone = '극지 툰드라·빙설 기후'; keySpecies = '순록 · 북극여우 · 지의류 · 툰드라 철새';
+        ecologicalCharacter = '영구동토층과 설빙 반사율이 존재해 온난화 및 토양 교란 시 메탄·탄소 피드백이 크게 증폭됩니다.';
+        baseBiodiv = 58; baseSoil = 62; baseSoc = 4.2; baseWater = 90; baseAir = 94; basePm25 = 3.8; baseGhg = -50;
+      } else if (absLat < 16 && !(normalizedLng > 38 && normalizedLng < 52)) {
+        biomeL = 'forest'; climateZone = '열대 우림·몬순 지대'; keySpecies = '열대 활엽교목 · 대형 포유류 · 양서류 · 착생식물';
+        ecologicalCharacter = '고온다습한 기후로 식물 생장 속도와 종 다양성이 매우 높지만, 벌채 시 토양 양분이 급속히 유실됩니다.';
+        baseBiodiv = 88; baseSoil = 81; baseSoc = 4.9; baseWater = 82; baseAir = 84; basePm25 = 9.5; baseGhg = -720;
+      } else if ((clampedLat > 13 && clampedLat < 33 && normalizedLng > -16 && normalizedLng < 60) || (clampedLat > -32 && clampedLat < -18 && normalizedLng > 116 && normalizedLng < 142)) {
+        biomeL = 'arid'; climateZone = '건조·반건조 사막 스텝 지대'; keySpecies = '건생 관목 · 사막 파충류 · 아카시아 · 사막 포유류';
+        ecologicalCharacter = '수분 제약이 커서 토양 훼손 시 사막화가 빠르게 고착되며, 식생 복원 시 미기후 개선폭이 큽니다.';
+        baseBiodiv = 45; baseSoil = 38; baseSoc = 0.6; baseWater = 46; baseAir = 55; basePm25 = 33.0; baseGhg = 110;
+      } else if (absLat >= 50) {
+        biomeL = 'forest'; climateZone = '아한대 침엽수림 (타이가)'; keySpecies = '침엽수림 · 말코손바닥사슴 · 늑대 · 빙하호 담수어';
+        ecologicalCharacter = '토양 이탄·부식질 탄소 저장량이 높아 산림 보전 여부가 장기 온실가스 수지에 큰 영향을 미칩니다.';
+        baseBiodiv = 74; baseSoil = 82; baseSoc = 6.5; baseWater = 86; baseAir = 89; basePm25 = 6.4; baseGhg = -390;
+      }
+
+      return {
+        id: 'custom-' + clampedLat + '-' + normalizedLng,
+        nameKo: regionName.split('·')[0].trim() + ' 선택 지점 (' + clampedLat.toFixed(1) + '°, ' + normalizedLng.toFixed(1) + '°)',
+        countryOrRegion: regionName,
+        lat: clampedLat, lng: normalizedLng, biome: biomeL, isOcean: false, isCustomClick: true,
+        keySpecies: keySpecies, ecologicalCharacter: ecologicalCharacter,
+        description: '지도에서 직접 선택한 위도 ' + clampedLat.toFixed(1) + '°, 경도 ' + normalizedLng.toFixed(1) + '° (' + climateZone + ') 구역입니다.',
+        observedBaseline: {
+          airQualityIndex: baseAir, pm25UgM3: basePm25, waterQualityIndex: baseWater, dissolvedOxygenMgL: 7.9,
+          soilHealthIndex: baseSoil, soilOrganicCarbonPct: baseSoc, biodiversityIndex: baseBiodiv,
+          ecosystemResilience: Math.round((baseBiodiv + baseSoil + baseWater) / 3),
+          baselineAnnualGhgTonsPerKm2: baseGhg, ambientCo2Ppm: 425, climateZone: climateZone,
+          dataReferenceNote: '선택 좌표의 위도대·대륙 생태구 기준(IPCC/FAO) 참조 기준선'
+        }
+      };
+    }
+
+    function drawEquirectangularWorldMap(ctx, width, height, options) {
+      var oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
+      oceanGrad.addColorStop(0, '#0d2638');
+      oceanGrad.addColorStop(0.5, '#092c46');
+      oceanGrad.addColorStop(1, '#102c40');
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      var lonToX = function (lon) { return ((lon + 180) / 360) * width; };
+      var latToY = function (lat) { return ((90 - lat) / 180) * height; };
+
+      var landGrad = ctx.createLinearGradient(0, 0, 0, height);
+      landGrad.addColorStop(0.0, '#d8e6ef');
+      landGrad.addColorStop(0.14, '#295749');
+      landGrad.addColorStop(0.28, '#2f6c53');
+      landGrad.addColorStop(0.38, '#7e7952');
+      landGrad.addColorStop(0.5, '#1f6e49');
+      landGrad.addColorStop(0.62, '#5e734c');
+      landGrad.addColorStop(0.75, '#2b614b');
+      landGrad.addColorStop(0.89, '#dce8ef');
+      landGrad.addColorStop(1.0, '#eef5f8');
+
+      ctx.save();
+      ctx.fillStyle = landGrad;
+      ctx.strokeStyle = 'rgba(110, 231, 183, 0.28)';
+      ctx.lineWidth = Math.max(1, width / 1000);
+      for (var p = 0; p < LAND_POLYGONS.length; p++) {
+        var coords = LAND_POLYGONS[p].coords;
+        ctx.beginPath();
+        for (var k = 0; k < coords.length; k++) {
+          var x = lonToX(coords[k][0]), y = latToY(coords[k][1]);
+          if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      if (options && options.impactPoint) {
+        var ip = options.impactPoint;
+        var cx = lonToX(ip.lng), cy = latToY(ip.lat);
+        var r = Math.max(16, ip.radiusNorm * width * 0.12);
+        var glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        glow.addColorStop(0, ip.color);
+        glow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (!options || options.grid !== false) {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.lineWidth = Math.max(0.6, width / 1800);
+        for (var lon = -150; lon <= 150; lon += 30) {
+          ctx.beginPath(); ctx.moveTo(lonToX(lon), 0); ctx.lineTo(lonToX(lon), height); ctx.stroke();
+        }
+        for (var lat = -60; lat <= 60; lat += 30) {
+          ctx.beginPath(); ctx.moveTo(0, latToY(lat)); ctx.lineTo(width, latToY(lat)); ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.beginPath(); ctx.moveTo(0, latToY(0)); ctx.lineTo(width, latToY(0)); ctx.stroke();
+      }
+    }
+
+    /* =========================================================================
+     * 2. ENVIRONMENTAL SIMULATION ENGINE (10 ACTIONS + REGION DYNAMICS)
+     * ========================================================================= */
+    var TIMELINE_YEARS = [0, 25, 50, 75, 100];
+
+    var ENVIRONMENTAL_ACTIONS = [
+      { id: 'plant_trees', nameKo: '나무 심기', polarity: 'positive', unitKo: '그루', defaultQuantity: 5000, minQuantity: 10, maxQuantity: 1000000, quickScales: [100, 1000, 10000, 100000], scientificBasis: '성목 1그루당 연평균 22kg CO₂ 흡수(IPCC/USFS 평균치), 위도·기후대별 생장률 보정 적용', referenceScale: 1000, weights: { airQuality: 0.72, waterQuality: 0.48, soilHealth: 0.85, biodiversity: 0.76, ecosystem: 0.82, ghgFactor: -22 }, halfLife: 80 },
+      { id: 'restore_forest', nameKo: '숲 복원하기', polarity: 'positive', unitKo: 'ha', defaultQuantity: 120, minQuantity: 1, maxQuantity: 50000, quickScales: [10, 100, 500, 5000], scientificBasis: '복원림 1ha당 연간 7~14 tCO₂e 격리 및 토양 유기탄소·수원 함양 기능 회복 모델 적용', referenceScale: 50, weights: { airQuality: 0.82, waterQuality: 0.68, soilHealth: 0.92, biodiversity: 0.96, ecosystem: 0.98, ghgFactor: -450 }, halfLife: 95 },
+      { id: 'cleanup_ocean', nameKo: '해양 쓰레기 수거하기', polarity: 'positive', unitKo: '톤', defaultQuantity: 500, minQuantity: 1, maxQuantity: 100000, quickScales: [10, 100, 500, 5000], scientificBasis: '플라스틱 1톤 수거 시 수백 년간 잔류할 미세플라스틱 분해원 차단 및 해양 생물 생존율 회복 가정', referenceScale: 200, weights: { airQuality: 0.22, waterQuality: 0.95, soilHealth: 0.42, biodiversity: 0.9, ecosystem: 0.84, ghgFactor: -60 }, halfLife: 70 },
+      { id: 'restore_wetland', nameKo: '습지 복원하기', polarity: 'positive', unitKo: 'ha', defaultQuantity: 80, minQuantity: 1, maxQuantity: 20000, quickScales: [10, 50, 200, 1000], scientificBasis: '연안·이탄 습지 1ha당 연간 6~10 tCO₂e 퇴적 격리(블루카본) 및 질소·인 부영양화 여과 가정', referenceScale: 40, weights: { airQuality: 0.54, waterQuality: 0.98, soilHealth: 0.88, biodiversity: 0.94, ecosystem: 0.95, ghgFactor: -320 }, halfLife: 90 },
+      { id: 'install_renewables', nameKo: '재생에너지 시설 설치하기', polarity: 'positive', unitKo: 'MW', defaultQuantity: 150, minQuantity: 1, maxQuantity: 10000, quickScales: [10, 100, 500, 2000], scientificBasis: '재생에너지 1MW당 연평균 약 900~1,200 tCO₂e 화석발전 배출 대체(IEA 계통평균 기준) 가정', referenceScale: 100, weights: { airQuality: 0.96, waterQuality: 0.56, soilHealth: 0.44, biodiversity: 0.52, ecosystem: 0.72, ghgFactor: -95000 }, halfLife: 60 },
+      { id: 'dump_plastic', nameKo: '플라스틱 쓰레기 버리기', polarity: 'negative', unitKo: 'kg', defaultQuantity: 10000, minQuantity: 10, maxQuantity: 10000000, quickScales: [100, 1000, 10000, 100000], scientificBasis: '플라스틱 자연 분해 반감기 약 350~450년 적용, 풍화 중 미세입자 및 온실가스 미량 방출 가정', referenceScale: 2000, weights: { airQuality: -0.34, waterQuality: -0.78, soilHealth: -0.92, biodiversity: -0.82, ecosystem: -0.79, ghgFactor: 12 }, halfLife: 400 },
+      { id: 'deforestation', nameKo: '산림 벌채하기', polarity: 'negative', unitKo: 'ha', defaultQuantity: 100, minQuantity: 1, maxQuantity: 50000, quickScales: [10, 100, 500, 5000], scientificBasis: '산림 1ha 벌채 시 지상부·토양 저장 탄소 약 180~320 tCO₂e 방출 및 표토 침식 가속화 모델 적용', referenceScale: 50, weights: { airQuality: -0.76, waterQuality: -0.72, soilHealth: -0.95, biodiversity: -0.97, ecosystem: -0.96, ghgFactor: 480 }, halfLife: 120 },
+      { id: 'build_factory', nameKo: '공장 건설하기', polarity: 'negative', unitKo: '개소', defaultQuantity: 3, minQuantity: 1, maxQuantity: 100, quickScales: [1, 3, 10, 30], scientificBasis: '중규모 화석에너지 기반 공장 1개소당 연평균 35,000 tCO₂e 배출 및 대기질·산성강하물 누적 가정', referenceScale: 2, weights: { airQuality: -0.98, waterQuality: -0.74, soilHealth: -0.68, biodiversity: -0.78, ecosystem: -0.84, ghgFactor: 70000 }, halfLife: 85 },
+      { id: 'chemical_pollution', nameKo: '화학물질 수질오염 발생시키기', polarity: 'negative', unitKo: '톤/년', defaultQuantity: 50, minQuantity: 1, maxQuantity: 10000, quickScales: [5, 25, 100, 500], scientificBasis: '잔류성 화학물질 생물농축 계수(BAF)와 용존산소 급감에 따른 무산소 수역 확산 모델 가정', referenceScale: 25, weights: { airQuality: -0.45, waterQuality: -1.0, soilHealth: -0.88, biodiversity: -0.95, ecosystem: -0.93, ghgFactor: 180 }, halfLife: 160 },
+      { id: 'ocean_dumping', nameKo: '해양 쓰레기 투기하기', polarity: 'negative', unitKo: '톤', defaultQuantity: 500, minQuantity: 1, maxQuantity: 200000, quickScales: [10, 100, 500, 5000], scientificBasis: '해류 확산에 따른 연안·원양 동시 오염, 플랑크톤 광합성 저하 및 어패류 섭식 피해 누적 가정', referenceScale: 200, weights: { airQuality: -0.28, waterQuality: -0.97, soilHealth: -0.52, biodiversity: -0.94, ecosystem: -0.89, ghgFactor: 95 }, halfLife: 380 }
+    ];
+
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+    function getRegionActionDynamics(location, action) {
+      var id = location.id, biome = location.biome, isOcean = location.isOcean, absLat = Math.abs(location.lat);
+      var dm = { air: 1.0, water: 1.0, soil: 1.0, biodiversity: 1.0, ecosystem: 1.0 };
+      var effectMultiplier = 1.0, carbonMultiplier = 1.0;
+      var curveExponent = action.polarity === 'positive' ? 0.78 : 0.68;
+      var compatibilityLabel = '표준 지역 민감도 (1.00×)';
+      var interactionMechanismKo = location.nameKo + '의 ' + location.observedBaseline.climateZone + ' 특성에 따라 표준 생태 반응 모델이 적용되었습니다.';
+
+      if (isOcean) {
+        if (action.id === 'plant_trees' || action.id === 'restore_forest') {
+          effectMultiplier = 0.52; carbonMultiplier = 0.65; curveExponent = 0.92;
+          compatibilityLabel = '해양 지역 · 연안 블루카본 대체 환산 (0.52×)';
+          interactionMechanismKo = '원양·해역 중심 지점이므로 육상 수목 식재 대신 인접 연안 맹그로브·해초림(블루카본) 조성 효과로 보수적 환산이 적용되었습니다.';
+          dm.soil = 0.4; dm.water = 1.15;
+        } else if (action.id === 'deforestation') {
+          effectMultiplier = 0.45; carbonMultiplier = 0.5;
+          compatibilityLabel = '해역 지점 · 연안 식생 간접 영향 (0.45×)';
+          interactionMechanismKo = '해양 좌표에서는 직접 산림 벌채 면적이 제한되며, 인접 연안 맹그로브 훼손과 토사 유출을 통한 간접 피해만 반영됩니다.';
+          dm.soil = 0.35; dm.water = 1.1;
+        } else if (action.id === 'cleanup_ocean' || action.id === 'ocean_dumping') {
+          if (id === 'pacific-gyre') {
+            effectMultiplier = action.id === 'ocean_dumping' ? 1.65 : 1.52; carbonMultiplier = 1.25;
+            curveExponent = action.id === 'ocean_dumping' ? 0.56 : 0.72;
+            compatibilityLabel = '아열대 환류 수렴대 (' + effectMultiplier.toFixed(2) + '×)';
+            interactionMechanismKo = '북태평양 환류는 해류가 폐기물을 중앙으로 가두는 구조이므로, 투기 시 장기간 고농도 축적되고 수거 시 광역 정화 파급력이 큽니다.';
+          } else if (id === 'great-barrier-reef') {
+            effectMultiplier = action.id === 'ocean_dumping' ? 1.72 : 1.48; carbonMultiplier = 1.15; curveExponent = 0.58;
+            compatibilityLabel = '열대 산호초 고민감 해역 (' + effectMultiplier.toFixed(2) + '×)';
+            interactionMechanismKo = '그레이트 배리어 리프는 탁도와 미세플라스틱에 극도로 취약해 오염 시 산호 백화와 먹이사슬 붕괴가 급속히 가속됩니다.';
+          } else {
+            effectMultiplier = 1.38; carbonMultiplier = 1.1;
+            compatibilityLabel = '해양 직접 작용 구역 (1.38×)';
+            interactionMechanismKo = '해수 순환을 통해 표층·저서 생물군과 직결되므로 해양 정화 또는 투기 행동의 효과가 육상 대비 크게 증폭됩니다.';
+          }
+          dm.water = 1.4; dm.biodiversity = 1.35; dm.soil = 0.45;
+        } else if (action.id === 'chemical_pollution') {
+          effectMultiplier = id === 'great-barrier-reef' ? 1.78 : 1.46; curveExponent = 0.55;
+          compatibilityLabel = '해양 독성 확산 구역 (' + effectMultiplier.toFixed(2) + '×)';
+          interactionMechanismKo = '해수 중 잔류 화학물질이 플랑크톤과 어패류에 생물농축되어 연안·원양 먹이사슬 전체로 빠르게 퍼집니다.';
+          dm.water = 1.48; dm.biodiversity = 1.42; dm.soil = 0.5;
+        } else if (action.id === 'install_renewables') {
+          effectMultiplier = 1.16; carbonMultiplier = 1.18;
+          compatibilityLabel = '해상 풍력·조력 적합 해역 (1.16×)';
+          interactionMechanismKo = '풍속이 균일한 해상 풍력 및 해양 에너지 발전 조건이 적용되어 단위 설비당 화석연료 대체 효과가 높게 산출됩니다.';
+          dm.air = 1.15;
+        }
+      }
+
+      if (biome === 'polar') {
+        if (action.polarity === 'negative') {
+          effectMultiplier = Math.max(effectMultiplier, 1.62); carbonMultiplier = 1.75; curveExponent = 0.58;
+          compatibilityLabel = '극지 증폭 · 해빙 알베도 임계 구역 (1.62×)';
+          interactionMechanismKo = '북극·극지대는 검댕 침적과 온실가스 증가가 해빙 융해·영구동토 메탄 방출을 유발해 피해가 1.6배 이상 증폭됩니다.';
+          dm.ecosystem = 1.45; dm.biodiversity = 1.38;
+        } else {
+          effectMultiplier = action.id === 'plant_trees' ? 0.58 : Math.max(effectMultiplier, 1.24);
+          carbonMultiplier = action.id === 'plant_trees' ? 0.5 : 1.35;
+          compatibilityLabel = action.id === 'plant_trees' ? '극지 저온 · 수목 생장 제한 (0.58×)' : '극지 온난화 완화 고효율 (1.24×)';
+          interactionMechanismKo = action.id === 'plant_trees'
+            ? '극지 툰드라·해빙 지대는 저온과 짧은 생장기로 수목 활착과 탄소 흡수 속도가 온대·열대 대비 절반 수준으로 제한됩니다.'
+            : '청정에너지 전환 및 오염 차단이 극지 해빙 알베도 유지와 한류 생태계 보전에 직접 기여합니다.';
+        }
+      }
+
+      if (biome === 'forest') {
+        if (action.id === 'deforestation') {
+          effectMultiplier = id === 'amazon-basin' ? 1.76 : 1.54;
+          carbonMultiplier = id === 'amazon-basin' ? 1.85 : 1.68;
+          curveExponent = 0.54;
+          compatibilityLabel = '고밀도 탄소 저장림 붕괴 위험 (' + effectMultiplier.toFixed(2) + '×)';
+          interactionMechanismKo = id === 'amazon-basin'
+            ? '아마존 열대우림은 자체 증발산으로 강수를 유지하므로 대규모 벌채 시 강수 감소와 사바나화 악순환이 급격히 진행됩니다.'
+            : '타이가·산림의 막대한 토양 부식질 탄소가 벌채와 함께 산화·방출되어 온실가스 부하가 크게 증가합니다.';
+          dm.biodiversity = 1.45; dm.soil = 1.4; dm.air = 1.25;
+        } else if (action.id === 'plant_trees' || action.id === 'restore_forest') {
+          var isTrop = absLat < 22;
+          effectMultiplier = isTrop ? 1.48 : 1.22; carbonMultiplier = isTrop ? 1.55 : 1.15;
+          curveExponent = isTrop ? 0.68 : 0.86;
+          compatibilityLabel = isTrop ? '열대 고생장 · 종다양성 허브 (1.48×)' : '산림 토양 탄소 축적 적합 (1.22×)';
+          interactionMechanismKo = isTrop
+            ? '풍부한 일사량과 강수로 수목 생장과 다층 생태계 천이가 빠르게 일어나 생물다양성 회복 효과가 극대화됩니다.'
+            : '한랭·온대 산림의 느린 분해 특성 덕분에 식생과 토양층에 탄소가 안정적으로 장기 고정됩니다.';
+          dm.biodiversity = 1.38; dm.soil = 1.32;
+        } else if (action.id === 'cleanup_ocean' || action.id === 'ocean_dumping') {
+          effectMultiplier = 0.48;
+          compatibilityLabel = '내륙 산림 · 하천 유역 간접 환산 (0.48×)';
+          interactionMechanismKo = '내륙 산림 지역이므로 하천·담수 유역 폐기물 수거/유입에 따른 간접 영향으로 보정 계산됩니다.';
+          dm.water = 1.1;
+        }
+      }
+
+      if (biome === 'wetland') {
+        if (action.id === 'restore_wetland') {
+          effectMultiplier = id === 'congo-basin' ? 1.72 : 1.64; carbonMultiplier = id === 'congo-basin' ? 1.9 : 1.75; curveExponent = 0.66;
+          compatibilityLabel = '핵심 블루카본·이탄습지 시너지 (' + effectMultiplier.toFixed(2) + '×)';
+          interactionMechanismKo = id === 'sundarbans-wetland'
+            ? '순다르반스 맹그로브 습지는 일반 육상 산림보다 단위 면적당 최대 4~5배 높은 퇴적 탄소 격리 및 연안 방재 효과를 보입니다.'
+            : '콩고 이탄습지 복원은 수천 년간 축적된 지하 이탄층 건조화를 막아 막대한 잠재 배출을 차단합니다.';
+          dm.water = 1.45; dm.soil = 1.4; dm.biodiversity = 1.38;
+        } else if (action.id === 'chemical_pollution' || action.id === 'dump_plastic') {
+          effectMultiplier = 1.48;
+          compatibilityLabel = '습지 퇴적 독성 장기 잔류 구역 (1.48×)';
+          interactionMechanismKo = '유속이 느린 습지 퇴적층 특성상 유입된 화학물질과 미세플라스틱이 빠져나가지 못하고 장기간 축적됩니다.';
+          dm.water = 1.42; dm.soil = 1.35;
+        }
+      }
+
+      if (biome === 'arid') {
+        if (action.id === 'plant_trees' || action.id === 'restore_forest' || action.id === 'restore_wetland') {
+          effectMultiplier = 1.52; carbonMultiplier = 0.92; curveExponent = 0.88;
+          compatibilityLabel = '사막화 저지 · 토양 수분 회복 증폭 (1.52×)';
+          interactionMechanismKo = '사헬 반건조 지대는 초기 25년간 활착 관리가 필수적이지만, 녹화가 정착되면 토양 유기물과 국지 강수 순환이 되살아납니다.';
+          dm.soil = 1.55; dm.air = 1.25; dm.ecosystem = 1.42;
+        } else if (action.id === 'deforestation' || action.id === 'dump_plastic') {
+          effectMultiplier = 1.6; curveExponent = 0.55;
+          compatibilityLabel = '사막화 임계점 가속 위험 (1.60×)';
+          interactionMechanismKo = '척박한 건조 토양에서는 소규모 식생 파괴와 폐기물 적치만으로도 표토가 유실되어 비가역적 사막화로 치닫기 쉽습니다.';
+          dm.soil = 1.55; dm.water = 1.35;
+        }
+      }
+
+      if (biome === 'temperate') {
+        if (action.id === 'build_factory' || action.id === 'install_renewables') {
+          effectMultiplier = id === 'korea-capital' ? 1.44 : 1.32; carbonMultiplier = id === 'korea-capital' ? 1.3 : 1.24;
+          compatibilityLabel = '고밀도 유역 대기질·계통 민감 구역 (' + effectMultiplier.toFixed(2) + '×)';
+          interactionMechanismKo = id === 'korea-capital'
+            ? '한반도 중부는 분지 지형과 계절풍 대기 정체 영향으로, 공장 증설 시 PM2.5 악화 폭이 크고 재생에너지 전환 시 개선 체감도가 높습니다.'
+            : '서유럽 내륙 산업 회랑은 계통 전력 대체 효과와 하천 수질·대기질 연계 회복 탄력성이 높게 나타납니다.';
+          dm.air = 1.45; dm.water = 1.2;
+        } else if (action.id === 'chemical_pollution') {
+          effectMultiplier = 1.42;
+          compatibilityLabel = '내륙 식수원·하천 유역 취약 (1.42×)';
+          interactionMechanismKo = '밀집된 하천 수계와 취수원을 공유하는 온대 유역 특성상 화학물질 유입 시 담수 생태계와 상수원 오염 피해가 누적됩니다.';
+          dm.water = 1.45; dm.biodiversity = 1.28;
+        } else if (action.id === 'cleanup_ocean' || action.id === 'ocean_dumping') {
+          effectMultiplier = 0.56;
+          compatibilityLabel = '내륙 유역 · 하천/하구 폐기물 환산 (0.56×)';
+          interactionMechanismKo = '내륙 지점이므로 본류 하천 및 하구를 통해 바다로 유출·회수되는 폐기물 경로를 기준으로 보정 계산되었습니다.';
+          dm.water = 1.15;
+        }
+      }
+
+      return {
+        effectMultiplier: effectMultiplier,
+        carbonMultiplier: carbonMultiplier,
+        curveExponent: curveExponent,
+        compatibilityLabel: compatibilityLabel,
+        interactionMechanismKo: interactionMechanismKo,
+        domainMultipliers: dm
+      };
+    }
+
+    function buildMitigation(location, action) {
+      var isPos = action.polarity === 'positive';
+      var h = location.nameKo + '(' + location.observedBaseline.climateZone + ')';
+      if (location.biome === 'polar') {
+        return isPos ? [
+          h + ' 내 해빙 알베도 및 영구동토층 융해 속도를 위성 관측으로 상시 추적',
+          '극지 항로 선박의 블랙카본 및 중유 사용을 금지해 청정에너지 효과 보존',
+          '핵심종(' + location.keySpecies + ')의 번식지·해빙 이동 회랑을 보호구역으로 설정',
+          '저위도 산업권 온실가스 감축과 연계해 극지 증폭 온난화를 1.5°C 이내로 억제'
+        ] : [
+          h + ' 내 검댕·온실가스 배출 활동(' + action.nameKo + ') 즉각 중단 및 무탄소 전환',
+          '영구동토층 메탄 유출 및 연안 해빙 붕괴 위험 구역에 긴급 완충망 구축',
+          '한류 수계 오염 차단을 위한 선박·산업 폐수 무방류 기준 적용',
+          '극지 생태계 핵심종(' + location.keySpecies + ') 긴급 모니터링 및 국제 보호 협약 강화'
+        ];
+      }
+      if (location.biome === 'ocean') {
+        return isPos ? [
+          h + ' 해류 이동 경로에 맞춘 부유물 차단 펜스 및 연안 정화선 상시 배치',
+          '인접 육상 하구에서 유입되는 비점오염·미세플라스틱 총량 규제로 재오염 방지',
+          '해양 핵심종(' + location.keySpecies + ') 산란장·서식지를 해양보호구역으로 지정',
+          '용존산소(' + location.observedBaseline.dissolvedOxygenMgL + 'mg/L 기준) 및 수온 편차 5년 주기 실측 검증'
+        ] : [
+          h + ' 내 ' + action.nameKo + ' 행위 즉각 차단 및 해류 확산 경로상 방제선 투입',
+          '산호초·다시마숲 등 핵심 서식처(' + location.keySpecies + ') 주변 오염 완충 해역 지정',
+          '어구·플라스틱 생산자 책임 재활용제 및 해양 투기 실시간 위성 추적 강화',
+          '연안 맹그로브·잘피밭 등 블루카본 정화 벨트를 복원해 수질 자정 능력 확보'
+        ];
+      }
+      if (location.biome === 'arid') {
+        return isPos ? [
+          h + ' 초기 0~25년 식생 활착기 동안 빗물 집수구 및 점적 관개 병행',
+          '가뭄 내성이 높은 토착 수종(' + location.keySpecies + ') 중심의 농림복합경영 도입',
+          '과도한 방목 제한과 표토 피복 유지를 통해 사막화 재발 차단',
+          '지역 공동체 기반 묘목·수분 관리 인센티브를 제공해 100년 장기 유지율 확보'
+        ] : [
+          h + ' 사막화 임계점 도달 전 토양 침식 방지 방풍림 및 사구 고정막 긴급 설치',
+          '폐기물 투기·식생 훼손(' + action.nameKo + ') 전면 통제 및 지하수 취수 규제',
+          '잔류 폐기물 수거 후 토양 미생물·유기물 투입으로 표토 회복 착수',
+          '건생 핵심종(' + location.keySpecies + ') 보호와 지역 물 저장 인프라 확충 동시 추진'
+        ];
+      }
+      if (location.biome === 'wetland') {
+        return isPos ? [
+          h + ' 내 조간대·이탄층 수위를 자연 상태로 유지해 산화·탄소 유출 차단',
+          '상류에서 유입되는 농약·중금속·플라스틱 쓰레기를 유역 입구에서 1차 여과',
+          '습지 지표종(' + location.keySpecies + ') 서식 회랑 연결 및 수용력 관리',
+          '퇴적층 블루카본 저장량을 5년 단위로 실측하여 장기 보전 재원 연계'
+        ] : [
+          h + '의 ' + action.nameKo + ' 중단 및 이탄층 건조화 방지를 위한 수위 복원 수로 설치',
+          '오염 유입 구간 주변에 갈대·부들 등 식물정화 완충 습지대 긴급 조성',
+          '핵심종(' + location.keySpecies + ') 서식지 내 중금속·독성물질 생물농축 정밀 조사',
+          '유역 전체 하수·산업폐수 고도처리 기준 상향으로 자정 한계 초과 방지'
+        ];
+      }
+      return isPos ? [
+        h + ' 특성을 반영해 단일 수종 대신 토착 자생종(' + location.keySpecies + ') 다층 혼효림 조성',
+        '주변 도시·산업·농경지에서 유입되는 대기·수질 비점오염원을 동시에 저감',
+        '산불·병해충 등 25~50년차 교란 요인에 대비한 생태 통로 및 완충 녹지 구축',
+        '기준 데이터 대비 실제 회복 추이를 5년 주기로 현장·위성 검증'
+      ] : [
+        h + ' 내 ' + action.nameKo + ' 규모 즉각 감축 및 청정 대체 공정·친환경 소재 전환',
+        '하천·토양 오염 확산 방지를 위한 침사지·고도 정수·대기 집진 설비 긴급 가동',
+        '훼손지 표토 유실과 서식지 단절을 막기 위한 자생종(' + location.keySpecies + ') 생태 통로 복원',
+        '대기(PM2.5) 및 수질(DO) 실시간 경보 체계를 구축해 임계점 초과 전 선제 대응'
+      ];
+    }
+
+    function runSimulation(location, action, quantity) {
+      var safeQty = clamp(quantity || action.defaultQuantity, action.minQuantity, action.maxQuantity);
+      var ratio = safeQty / action.referenceScale;
+      var dyn = getRegionActionDynamics(location, action);
+      var rawIntensity = clamp(Math.pow(ratio, 0.36) * 0.65 + Math.log10(1 + ratio) * 0.38, 0.12, 3.6);
+      var intensityFactor = clamp(rawIntensity * dyn.effectMultiplier, 0.1, 4.4);
+      var base = location.observedBaseline;
+      var isPos = action.polarity === 'positive';
+      var snapshots = {};
+
+      for (var i = 0; i < TIMELINE_YEARS.length; i++) {
+        var yr = TIMELINE_YEARS[i];
+        var t = yr / 100;
+        var timeCurve = yr === 0 ? 0 : isPos ? Math.pow(t, dyn.curveExponent) * (1 - 0.1 * t * t) : Math.pow(t, dyn.curveExponent) * (1 + 0.18 * t);
+        var maxShift = 28 * intensityFactor;
+
+        var airQ = Number(clamp(base.airQualityIndex + action.weights.airQuality * maxShift * dyn.domainMultipliers.air * timeCurve, 3, 99).toFixed(1));
+        var waterQ = Number(clamp(base.waterQualityIndex + action.weights.waterQuality * maxShift * dyn.domainMultipliers.water * timeCurve, 3, 99).toFixed(1));
+        var soilH = Number(clamp(base.soilHealthIndex + action.weights.soilHealth * maxShift * dyn.domainMultipliers.soil * timeCurve, 3, 99).toFixed(1));
+        var biodiv = Number(clamp(base.biodiversityIndex + action.weights.biodiversity * maxShift * dyn.domainMultipliers.biodiversity * timeCurve, 2, 99).toFixed(1));
+        var eco = Number(clamp(base.ecosystemResilience + action.weights.ecosystem * maxShift * dyn.domainMultipliers.ecosystem * timeCurve, 3, 99).toFixed(1));
+
+        var airRatio = (100 - airQ) / Math.max(1, 100 - base.airQualityIndex);
+        var pm25 = Number(clamp(base.pm25UgM3 * (0.4 + 0.6 * airRatio), 1.6, 210).toFixed(1));
+        var doMgL = Number(clamp(base.dissolvedOxygenMgL + (waterQ - base.waterQualityIndex) * 0.068, 1.0, 13.8).toFixed(2));
+        var socPct = Number(clamp(base.soilOrganicCarbonPct + (soilH - base.soilHealthIndex) * 0.048, 0.2, 14.5).toFixed(2));
+
+        var annualMat = yr === 0 ? 0 : isPos ? 0.45 + 0.55 * t : 0.85 + 0.25 * t;
+        var annualGhg = Math.round(ratio * action.weights.ghgFactor * dyn.carbonMultiplier * annualMat);
+        var cumGhg = yr === 0 ? 0 : Math.round(ratio * action.weights.ghgFactor * dyn.carbonMultiplier * yr * (isPos ? 0.72 : 1.05));
+
+        var baseGhgScore = clamp(65 - base.baselineAnnualGhgTonsPerKm2 / 60, 20, 88);
+        var ghgShift = (isPos ? 1 : -1) * Math.min(44, intensityFactor * 16 * dyn.carbonMultiplier * timeCurve);
+        var ghgStab = Number(clamp(baseGhgScore + ghgShift, 4, 98).toFixed(1));
+
+        var globalTrend = isPos ? -18 * t * Math.min(1.6, intensityFactor * 0.45 * dyn.carbonMultiplier) : 58 * t * Math.min(1.9, intensityFactor * 0.45 * dyn.carbonMultiplier);
+        var co2Ppm = Number(clamp(base.ambientCo2Ppm + globalTrend, 355, 640).toFixed(1));
+        var overall = Number(((airQ + waterQ + soilH + biodiv + eco + ghgStab) / 6).toFixed(1));
+
+        snapshots[yr] = {
+          year: yr, calendarYear: 2026 + yr,
+          airQualityIndex: airQ, pm25UgM3: pm25,
+          waterQualityIndex: waterQ, dissolvedOxygenMgL: doMgL,
+          soilHealthIndex: soilH, soilOrganicCarbonPct: socPct,
+          biodiversityIndex: biodiv, ecosystemScore: eco,
+          ghgStabilityIndex: ghgStab, annualGhgDeltaTons: annualGhg,
+          cumulativeGhgDeltaTons: cumGhg, estimatedAmbientCo2Ppm: co2Ppm,
+          overallHealthScore: overall
+        };
+      }
+
+      var s0 = snapshots[0], s100 = snapshots[100];
+      var scoreDiff = Number((s100.overallHealthScore - s0.overallHealthScore).toFixed(1));
+
+      return {
+        location: location, action: action, quantity: safeQty,
+        intensityFactor: intensityFactor, dynamics: dyn, snapshots: snapshots,
+        assumptions: [
+          action.scientificBasis,
+          '지역×행동 상호작용 보정 [' + dyn.compatibilityLabel + ']: ' + dyn.interactionMechanismKo,
+          '시간 누적 곡선 지수(' + dyn.curveExponent.toFixed(2) + '): ' + (isPos ? '지역 기후대에 따른 식생·수계 성숙 속도 반영' : '오염 반감기(' + action.halfLife + '년) 및 지역 취약성 가중'),
+          '모든 2051~2126년 예측 수치는 단일 행동이 100년간 누적·지속될 경우를 상정한 모델 기반 가정치입니다.'
+        ],
+        impactSummaryKo: location.nameKo + "에서 '" + action.nameKo + "'(" + safeQty.toLocaleString() + ' ' + action.unitKo + ')를 100년간 적용할 경우, [' + dyn.compatibilityLabel + '] 특성이 반영되어 종합 생태 건강 지수는 현재 ' + s0.overallHealthScore + '점에서 2126년 ' + s100.overallHealthScore + '점으로 ' + (scoreDiff >= 0 ? '+' + scoreDiff + '점 개선' : scoreDiff + '점 하락') + '될 것으로 추정됩니다. ' + dyn.interactionMechanismKo,
+        year2126OutlookKo: isPos
+          ? '2126년 ' + location.countryOrRegion + ' 구역은 대기질 ' + s100.airQualityIndex + '점(PM2.5 ' + s100.pm25UgM3 + 'µg/m³), 수질 ' + s100.waterQualityIndex + '점(용존산소 ' + s100.dissolvedOxygenMgL + 'mg/L), 토양 유기탄소 ' + s100.soilOrganicCarbonPct + '%로 개선되며 100년 누적 약 ' + Math.abs(s100.cumulativeGhgDeltaTons).toLocaleString() + ' tCO₂e의 탄소 감축 효과가 전망됩니다.'
+          : '2126년 ' + location.countryOrRegion + ' 구역은 대기질 ' + s100.airQualityIndex + '점(PM2.5 ' + s100.pm25UgM3 + 'µg/m³), 수질 ' + s100.waterQualityIndex + '점(용존산소 ' + s100.dissolvedOxygenMgL + 'mg/L), 토양 건강도 ' + s100.soilHealthIndex + '점으로 떨어지고 100년 누적 약 ' + Math.abs(s100.cumulativeGhgDeltaTons).toLocaleString() + ' tCO₂e의 온실가스 부하가 누적될 위험이 있습니다.',
+        ecosystemImpactKo: isPos
+          ? location.nameKo + '의 핵심 지표종인 [' + location.keySpecies + '] 서식 환경이 점진적으로 회복됩니다. (' + location.ecologicalCharacter + ')'
+          : location.nameKo + '의 핵심 지표종인 [' + location.keySpecies + '] 개체군과 먹이사슬이 위협받습니다. (' + location.ecologicalCharacter + ')',
+        mitigationStrategiesKo: buildMitigation(location, action)
+      };
+    }
+
+    /* =========================================================================
+     * 3. CONTINUOUS ECOLOGICAL DIORAMA CANVAS RENDERER (0 -> 25 -> 50 -> 75 -> 100)
+     * ========================================================================= */
+    function seeded(n) {
+      var x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+      return x - Math.floor(x);
+    }
+    function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
+    function lerpColor(a, b, t) {
+      var c = Math.max(0, Math.min(1, t));
+      return 'rgb(' + Math.round(lerp(a[0], b[0], c)) + ',' + Math.round(lerp(a[1], b[1], c)) + ',' + Math.round(lerp(a[2], b[2], c)) + ')';
+    }
+
+    function drawHorizonFactories(ctx, w, horizonY, p, animSec) {
+      var count = Math.max(1, Math.round(1 + p * 5));
+      for (var i = 0; i < count; i++) {
+        var fx = w * (0.14 + i * 0.14), fy = horizonY + 8;
+        var stackH = (56 + (i % 2) * 20) * (0.6 + p * 0.45);
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(fx - 34, fy - 24, 68, 28);
+        ctx.fillStyle = '#334155'; ctx.fillRect(fx - 7, fy - stackH, 14, stackH);
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(fx - 7, fy - stackH + 8, 14, 5);
+        for (var s = 0; s < 6; s++) {
+          var drift = (animSec * 14 + s * 18) % 105;
+          var puffX = fx + drift * 1.15, puffY = fy - stackH - drift * 0.78;
+          var puffR = 10 + drift * 0.28 * (0.6 + p * 0.7);
+          ctx.fillStyle = 'rgba(68,64,60,' + ((0.48 - drift * 0.003) * Math.max(0.25, p)).toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(puffX, puffY, puffR, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+
+    function drawHorizonWindTurbines(ctx, w, horizonY, p, animSec, isOffshore) {
+      var count = Math.max(2, Math.round(1 + p * 7));
+      for (var i = 0; i < count; i++) {
+        var tx = w * (0.12 + i * 0.11), ty = horizonY + (isOffshore ? 4 : -2);
+        var th = (48 + (i % 2) * 14) * (0.65 + p * 0.35);
+        ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty - th); ctx.stroke();
+        var hubY = ty - th; ctx.lineWidth = 2;
+        for (var b = 0; b < 3; b++) {
+          var ang = (b * Math.PI * 2) / 3 + animSec * 1.6 + i * 0.6;
+          ctx.beginPath(); ctx.moveTo(tx, hubY); ctx.lineTo(tx + Math.cos(ang) * 22, hubY + Math.sin(ang) * 22); ctx.stroke();
+        }
+      }
+    }
+
+    function drawFlyingBirds(ctx, w, h, count, animSec) {
+      ctx.strokeStyle = 'rgba(248,250,252,0.85)'; ctx.lineWidth = 2;
+      for (var i = 0; i < count; i++) {
+        var bx = ((seeded(i + 700) * w + animSec * 16) % (w * 0.9)) + w * 0.05;
+        var by = h * (0.09 + seeded(i + 750) * 0.24);
+        var flap = Math.sin(animSec * 4.5 + i) * 3;
+        ctx.beginPath();
+        ctx.moveTo(bx - 8, by + 2 + flap);
+        ctx.quadraticCurveTo(bx - 4, by - 4, bx, by);
+        ctx.quadraticCurveTo(bx + 4, by - 4, bx + 8, by + 2 + flap);
+        ctx.stroke();
+      }
+    }
+
+    function renderEcologicalDiorama(ctx, w, h, params) {
+      var actionId = params.actionId, biome = params.biome, locationId = params.locationId;
+      var yearFloat = params.yearFloat, intensityFactor = params.intensityFactor, animSec = params.animTimeSec;
+      var isPos = actionId === 'plant_trees' || actionId === 'restore_forest' || actionId === 'cleanup_ocean' || actionId === 'restore_wetland' || actionId === 'install_renewables';
+      var tYear = Math.max(0, Math.min(1, yearFloat / 100));
+      var scaleMod = Math.max(0.45, Math.min(1.25, 0.52 + intensityFactor * 0.24));
+      var p = Math.max(0, Math.min(1, tYear * scaleMod));
+
+      ctx.save();
+      ctx.clearRect(0, 0, w, h);
+
+      if (biome === 'ocean') {
+        var startsPolluted = locationId === 'pacific-gyre';
+        var pollution = startsPolluted ? 0.85 : 0.1;
+        pollution = isPos ? lerp(pollution, actionId === 'cleanup_ocean' ? 0.02 : 0.05, p) : lerp(pollution, actionId === 'build_factory' ? 0.82 : 0.98, p);
+        var horizonY = h * 0.28;
+
+        var skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+        skyGrad.addColorStop(0, lerpColor([22,120,195], [78,82,78], pollution));
+        skyGrad.addColorStop(1, lerpColor([145,218,248], [148,140,118], pollution));
+        ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, w, horizonY);
+
+        if (pollution < 0.75) {
+          var sunAlpha = Math.max(0, 1 - pollution * 1.3);
+          var sunGrad = ctx.createRadialGradient(w * 0.25, h * 0.09, 4, w * 0.25, h * 0.09, w * 0.28);
+          sunGrad.addColorStop(0, 'rgba(255,251,220,' + (0.9 * sunAlpha).toFixed(2) + ')');
+          sunGrad.addColorStop(0.4, 'rgba(186,230,253,' + (0.35 * sunAlpha).toFixed(2) + ')');
+          sunGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = sunGrad; ctx.fillRect(0, 0, w, horizonY);
+        }
+
+        if (actionId === 'build_factory' && !isPos) drawHorizonFactories(ctx, w, horizonY, p, animSec);
+        else if (actionId === 'install_renewables' && isPos) drawHorizonWindTurbines(ctx, w, horizonY, p, animSec, true);
+        else {
+          ctx.fillStyle = lerpColor([30,92,76], [76,72,62], pollution);
+          ctx.beginPath(); ctx.moveTo(w * 0.6, horizonY); ctx.quadraticCurveTo(w * 0.76, horizonY - h * 0.09, w * 0.96, horizonY); ctx.closePath(); ctx.fill();
+        }
+
+        var waterGrad = ctx.createLinearGradient(0, horizonY, 0, h);
+        waterGrad.addColorStop(0, lerpColor([16,178,212], [68,88,62], pollution));
+        waterGrad.addColorStop(0.55, lerpColor([8,118,162], [46,58,42], pollution));
+        waterGrad.addColorStop(1, lerpColor([5,58,96], [26,30,24], pollution));
+        ctx.fillStyle = waterGrad; ctx.fillRect(0, horizonY, w, h - horizonY);
+
+        var rayClarity = Math.max(0, 1 - pollution * 1.15);
+        if (rayClarity > 0.05) {
+          for (var r = 0; r < 6; r++) {
+            var rx = w * (0.12 + r * 0.15), sway = Math.sin(animSec * 0.7 + r) * 14;
+            var rayGrad = ctx.createLinearGradient(rx, horizonY, rx + 70, h * 0.9);
+            rayGrad.addColorStop(0, 'rgba(186,243,255,' + (0.28 * rayClarity).toFixed(3) + ')');
+            rayGrad.addColorStop(1, 'rgba(186,243,255,0)');
+            ctx.fillStyle = rayGrad;
+            ctx.beginPath(); ctx.moveTo(rx - 16, horizonY); ctx.lineTo(rx + 26, horizonY); ctx.lineTo(rx + 115 + sway, h * 0.92); ctx.lineTo(rx + 22 + sway, h * 0.92); ctx.closePath(); ctx.fill();
+          }
+        }
+
+        if (actionId === 'chemical_pollution' && p > 0.04) {
+          for (var ci = 0; ci < 4; ci++) {
+            var ccx = w * (0.18 + ci * 0.22), ccy = horizonY + h * (0.14 + (ci % 2) * 0.16), crad = w * (0.16 + p * 0.22);
+            var chGrad = ctx.createRadialGradient(ccx, ccy, 4, ccx, ccy, crad);
+            chGrad.addColorStop(0, 'rgba(163,230,53,' + (0.45 * p).toFixed(2) + ')');
+            chGrad.addColorStop(0.6, 'rgba(101,163,13,' + (0.22 * p).toFixed(2) + ')');
+            chGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = chGrad; ctx.beginPath(); ctx.ellipse(ccx, ccy, crad, crad * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+
+        ctx.fillStyle = lerpColor([194,174,132], [92,86,72], pollution);
+        ctx.beginPath(); ctx.moveTo(0, h * 0.84); ctx.quadraticCurveTo(w * 0.3, h * 0.78, w * 0.6, h * 0.84); ctx.quadraticCurveTo(w * 0.85, h * 0.88, w, h * 0.8); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+
+        var coralCols = [[251,113,133],[251,146,60],[250,204,21],[167,139,250],[45,212,191]];
+        var bleached = [208,205,196];
+        for (var co = 0; co < 18; co++) {
+          var cox = w * (0.04 + (co / 17) * 0.92), coy = h * (0.83 + seeded(co + 5) * 0.11);
+          var csize = (22 + seeded(co + 17) * 28) * (1 - pollution * 0.32);
+          ctx.fillStyle = lerpColor(coralCols[co % coralCols.length], bleached, Math.min(1, pollution * 1.15));
+          for (var cb = -2; cb <= 2; cb++) {
+            ctx.beginPath(); ctx.arc(cox + cb * csize * 0.28, coy - csize * (0.45 + (2 - Math.abs(cb)) * 0.2), csize * 0.34, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+
+        var maxFish = Math.round(Math.max(0, 1 - pollution * 1.12) * 34);
+        for (var fi = 0; fi < maxFish; fi++) {
+          var speed = 18 + (fi % 4) * 8;
+          var fx = ((seeded(fi + 201) * w + animSec * speed) % (w + 60)) - 30;
+          var fy = horizonY + h * 0.1 + seeded(fi + 301) * (h * 0.46);
+          var fsc = 0.7 + seeded(fi + 401) * 0.9;
+          ctx.fillStyle = fi % 3 === 0 ? '#fb923c' : fi % 3 === 1 ? '#38bdf8' : '#facc15';
+          ctx.beginPath(); ctx.ellipse(fx, fy, 9 * fsc, 4.2 * fsc, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(fx - 8 * fsc, fy); ctx.lineTo(fx - 15 * fsc, fy - 4.5 * fsc); ctx.lineTo(fx - 15 * fsc, fy + 4.5 * fsc); ctx.closePath(); ctx.fill();
+        }
+
+        var wasteCount = Math.round(pollution * 115);
+        for (var wi = 0; wi < wasteCount; wi++) {
+          var wx = w * (0.03 + seeded(wi + 501) * 0.94);
+          var wy = wi < wasteCount * 0.65 ? horizonY + seeded(wi + 601) * (h * 0.12) + Math.sin(animSec * 2 + wi) * 3 : horizonY + h * 0.15 + seeded(wi + 701) * (h * 0.56);
+          var wsc = 0.75 + seeded(wi + 801) * 0.95;
+          ctx.save(); ctx.translate(wx, wy); ctx.rotate(seeded(wi + 901) * Math.PI);
+          if (wi % 3 === 0) {
+            ctx.fillStyle = 'rgba(226,232,240,0.85)'; ctx.fillRect(-8 * wsc, -3.5 * wsc, 16 * wsc, 7 * wsc);
+            ctx.fillStyle = '#0284c7'; ctx.fillRect(6 * wsc, -2 * wsc, 3 * wsc, 4 * wsc);
+          } else if (wi % 3 === 1) {
+            ctx.fillStyle = 'rgba(245,158,11,0.75)'; ctx.beginPath(); ctx.ellipse(0, 0, 10 * wsc, 5 * wsc, 0.3, 0, Math.PI * 2); ctx.fill();
+          } else {
+            ctx.fillStyle = 'rgba(148,163,184,0.65)'; ctx.fillRect(-6 * wsc, -4 * wsc, 12 * wsc, 6 * wsc);
+          }
+          ctx.restore();
+        }
+
+        ctx.strokeStyle = lerpColor([186,230,253], [120,113,98], pollution); ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (var xw = 0; xw <= w; xw += 24) {
+          var yw = horizonY + Math.sin(xw * 0.015 + animSec * 2.2) * 4;
+          if (xw === 0) ctx.moveTo(xw, yw); else ctx.lineTo(xw, yw);
+        }
+        ctx.stroke();
+
+      } else if (biome === 'polar') {
+        var melt = isPos ? Math.max(0, 0.25 - p * 0.22) : Math.min(1, 0.08 + p * 0.92);
+        var phY = h * 0.44;
+        var pSky = ctx.createLinearGradient(0, 0, 0, phY);
+        pSky.addColorStop(0, lerpColor([38,116,184], [92,82,72], melt));
+        pSky.addColorStop(1, lerpColor([192,232,252], [156,138,118], melt));
+        ctx.fillStyle = pSky; ctx.fillRect(0, 0, w, phY);
+
+        var peaks = [[0,0.44,0.18,0.16,0.36,0.44],[0.22,0.44,0.46,0.11,0.7,0.44],[0.54,0.44,0.78,0.14,1.02,0.44]];
+        for (var pk = 0; pk < peaks.length; pk++) {
+          var pt = peaks[pk];
+          ctx.fillStyle = lerpColor([71,85,105], [68,56,46], melt);
+          ctx.beginPath(); ctx.moveTo(w*pt[0], h*pt[1]); ctx.lineTo(w*pt[2], h*pt[3]); ctx.lineTo(w*pt[4], h*pt[5]); ctx.closePath(); ctx.fill();
+          var snowSc = Math.max(0.12, 1 - melt * 0.88);
+          ctx.fillStyle = lerpColor([241,249,255], [203,213,225], melt);
+          ctx.beginPath(); ctx.moveTo(w*pt[2], h*pt[3]);
+          ctx.lineTo(lerp(w*pt[2], w*pt[0], snowSc), lerp(h*pt[3], h*pt[1], snowSc));
+          ctx.lineTo(lerp(w*pt[2], w*pt[4], snowSc), lerp(h*pt[3], h*pt[5], snowSc));
+          ctx.closePath(); ctx.fill();
+        }
+
+        if (actionId === 'build_factory' && !isPos) drawHorizonFactories(ctx, w, phY, p, animSec);
+        else if (actionId === 'install_renewables' && isPos) drawHorizonWindTurbines(ctx, w, phY, p, animSec, true);
+
+        var seaG = ctx.createLinearGradient(0, phY, 0, h);
+        seaG.addColorStop(0, lerpColor([14,130,178], [32,48,58], melt));
+        seaG.addColorStop(1, lerpColor([8,68,112], [18,24,30], melt));
+        ctx.fillStyle = seaG; ctx.fillRect(0, phY, w, h - phY);
+
+        for (var fl = 0; fl < 14; fl++) {
+          var flx = w * (0.06 + seeded(fl + 11) * 0.88) + Math.sin(animSec * 0.5 + fl) * (melt * 10);
+          var fly = phY + h * (0.08 + seeded(fl + 23) * 0.42);
+          var flW = 140 + seeded(fl + 37) * 160, flH = 26 + seeded(fl + 47) * 28;
+          var flSc = Math.max(0.18, 1 - melt * 0.82);
+          ctx.fillStyle = lerpColor([125,211,252], [100,116,139], melt);
+          ctx.beginPath(); ctx.ellipse(flx, fly + 5 * flSc, (flW * flSc) / 2, (flH * flSc) / 2, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#f1f5f9';
+          ctx.beginPath(); ctx.ellipse(flx, fly, (flW * flSc) / 2, (flH * flSc) / 2, 0, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = lerpColor([226,241,252], [92,68,48], melt);
+        ctx.beginPath(); ctx.moveTo(0, h*0.78); ctx.quadraticCurveTo(w*0.35, h*0.73, w*0.72, h*0.82); ctx.lineTo(w, h*0.78); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+        if (melt < 0.7) drawFlyingBirds(ctx, w, h, Math.round((1 - melt) * 18), animSec);
+
+      } else {
+        // Terrestrial (Forest / Temperate / Wetland / Arid)
+        var vegHealth = isPos
+          ? lerp(biome === 'arid' ? 0.12 : biome === 'wetland' ? 0.32 : 0.34, 0.98, p)
+          : lerp(biome === 'arid' ? 0.32 : 0.92, actionId === 'deforestation' ? 0.06 : actionId === 'build_factory' ? 0.18 : 0.25, p);
+        var smog = isPos ? lerp(0.32, 0.0, p) : lerp(0.04, actionId === 'build_factory' ? 0.92 : actionId === 'dump_plastic' ? 0.38 : 0.65, p);
+        var waterMurk = isPos ? lerp(0.45, 0.02, p) : lerp(0.05, actionId === 'chemical_pollution' ? 0.96 : 0.72, p);
+        var thY = h * 0.42;
+
+        var tSky = ctx.createLinearGradient(0, 0, 0, thY);
+        tSky.addColorStop(0, lerpColor([28,126,206], [96,84,68], smog));
+        tSky.addColorStop(1, lerpColor([165,224,250], [168,146,114], smog));
+        ctx.fillStyle = tSky; ctx.fillRect(0, 0, w, thY);
+
+        if (smog < 0.7) {
+          var sA = Math.max(0, 1 - smog * 1.4);
+          var sG = ctx.createRadialGradient(w*0.2, h*0.12, 8, w*0.2, h*0.12, w*0.42);
+          sG.addColorStop(0, 'rgba(254,249,195,' + (0.85 * sA).toFixed(2) + ')');
+          sG.addColorStop(0.35, 'rgba(186,230,253,' + (0.28 * sA).toFixed(2) + ')');
+          sG.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = sG; ctx.fillRect(0, 0, w, thY + h * 0.2);
+        }
+
+        if (smog < 0.55) {
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.55 * (1 - smog * 1.6)).toFixed(2) + ')';
+          for (var cl = 0; cl < 4; cl++) {
+            var clx = w * (0.28 + cl * 0.2) + Math.sin(animSec * 0.12 + cl) * 16;
+            var cly = h * (0.1 + (cl % 2) * 0.06);
+            ctx.beginPath(); ctx.ellipse(clx, cly, 56, 16, 0, 0, Math.PI * 2); ctx.ellipse(clx + 28, cly - 6, 38, 14, 0, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+
+        ctx.fillStyle = lerpColor([138,118,92], [38,102,78], vegHealth);
+        ctx.beginPath(); ctx.moveTo(0, thY); ctx.lineTo(w*0.18, thY - h*0.14); ctx.lineTo(w*0.38, thY - h*0.05); ctx.lineTo(w*0.6, thY - h*0.16); ctx.lineTo(w*0.82, thY - h*0.07); ctx.lineTo(w, thY - h*0.12); ctx.lineTo(w, thY + 40); ctx.lineTo(0, thY + 40); ctx.closePath(); ctx.fill();
+
+        if (actionId === 'build_factory' && !isPos) drawHorizonFactories(ctx, w, thY, p, animSec);
+        else if (actionId === 'install_renewables' && isPos) drawHorizonWindTurbines(ctx, w, thY, p, animSec, false);
+        else if (biome === 'temperate') {
+          for (var bi = 0; bi < 8; bi++) {
+            var bix = w * (0.64 + bi * 0.036), bih = 18 + (bi % 3) * 12, biy = thY + 12;
+            ctx.fillStyle = isPos ? '#475569' : '#334155'; ctx.fillRect(bix, biy - bih, 22, bih);
+            if (isPos && p > 0.1) { ctx.fillStyle = '#38bdf8'; ctx.fillRect(bix + 2, biy - bih - 3, 18, 3); }
+          }
+        }
+
+        ctx.fillStyle = lerpColor([148,116,78], [29,116,68], vegHealth);
+        ctx.beginPath(); ctx.moveTo(0, h*0.56); ctx.quadraticCurveTo(w*0.25, h*0.42, w*0.55, h*0.52); ctx.quadraticCurveTo(w*0.82, h*0.4, w, h*0.54); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+
+        var rCol = (actionId === 'chemical_pollution' && !isPos) ? lerpColor([28,152,208], [138,178,36], Math.min(1, p * 1.15)) : lerpColor([28,152,208], [108,92,58], waterMurk);
+        var rwSc = (actionId === 'restore_wetland' && isPos) ? lerp(0.6, 1.45, p) : (biome === 'arid' && isPos) ? lerp(0.35, 1.1, p) : (!isPos && actionId === 'deforestation') ? lerp(1.0, 0.52, p) : 1.0;
+        ctx.fillStyle = rCol;
+        ctx.beginPath(); ctx.moveTo(w*(0.48 - 0.03*rwSc), h*0.48); ctx.quadraticCurveTo(w*0.56, h*0.66, w*(0.38 - 0.16*rwSc), h); ctx.lineTo(w*(0.58 + 0.18*rwSc), h); ctx.quadraticCurveTo(w*0.64, h*0.66, w*(0.52 + 0.03*rwSc), h*0.48); ctx.closePath(); ctx.fill();
+
+        if (actionId === 'chemical_pollution' && p > 0.04) {
+          ctx.strokeStyle = 'rgba(217,249,157,' + (0.55 * p).toFixed(2) + ')'; ctx.lineWidth = 3;
+          for (var sf = 0; sf < 5; sf++) {
+            var syf = h * (0.58 + sf * 0.08);
+            ctx.beginPath(); ctx.moveTo(w*0.34, syf); ctx.quadraticCurveTo(w*0.5, syf + Math.sin(animSec * 2 + sf) * 7, w*0.66, syf - 4); ctx.stroke();
+          }
+        }
+
+        ctx.fillStyle = lerpColor([162,126,84], [38,134,72], vegHealth);
+        ctx.beginPath(); ctx.moveTo(0, h*0.58); ctx.quadraticCurveTo(w*0.25, h*0.6, w*0.42, h*0.74); ctx.lineTo(w*0.24, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(w, h*0.56); ctx.quadraticCurveTo(w*0.78, h*0.62, w*0.64, h*0.76); ctx.lineTo(w*0.74, h); ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+
+        if (vegHealth < 0.45) {
+          ctx.strokeStyle = 'rgba(68,48,28,' + ((0.45 - vegHealth) * 1.4).toFixed(2) + ')'; ctx.lineWidth = 1.6;
+          for (var cr = 0; cr < 16; cr++) {
+            var kx = w * (0.05 + seeded(cr + 81) * 0.9), ky = h * (0.68 + seeded(cr + 91) * 0.28);
+            ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + 18, ky + 7); ctx.lineTo(kx + 32, ky - 3); ctx.stroke();
+          }
+        }
+
+        var totalSlots = 46, activeTrees = Math.round(vegHealth * totalSlots);
+        for (var ti = 0; ti < totalSlots; ti++) {
+          var sx = seeded(ti + 12), sy = seeded(ti + 44);
+          var tx = w * (0.04 + sx * 0.92), ty = h * (0.49 + sy * 0.42);
+          if (tx > w * 0.41 && tx < w * 0.62 && ty > h * 0.55) continue;
+          var depthSc = 0.52 + sy * 0.95;
+          if (ti < activeTrees) {
+            var gSc = depthSc * (0.48 + vegHealth * 0.75);
+            var tH = (38 + (ti % 4) * 12) * gSc, cR = (18 + (ti % 3) * 6) * gSc;
+            ctx.fillStyle = '#4a3222'; ctx.fillRect(tx - 3 * gSc, ty - tH * 0.42, 6 * gSc, tH * 0.42);
+            ctx.fillStyle = lerpColor([142,132,68], [21,128,61], vegHealth);
+            ctx.beginPath(); ctx.arc(tx, ty - tH*0.62, cR, 0, Math.PI*2); ctx.arc(tx - cR*0.58, ty - tH*0.48, cR*0.74, 0, Math.PI*2); ctx.arc(tx + cR*0.58, ty - tH*0.5, cR*0.74, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = lerpColor([168,152,82], [52,211,153], vegHealth);
+            ctx.beginPath(); ctx.arc(tx - cR*0.18, ty - tH*0.76, cR*0.48, 0, Math.PI*2); ctx.fill();
+          } else if ((!isPos && actionId === 'deforestation') || (isPos && (actionId === 'plant_trees' || actionId === 'restore_forest') && ti < 20)) {
+            var sw = 11 * depthSc, sh = 10 * depthSc;
+            ctx.fillStyle = '#573d28'; ctx.fillRect(tx - sw/2, ty - sh, sw, sh);
+            ctx.fillStyle = '#c49a6c'; ctx.beginPath(); ctx.ellipse(tx, ty - sh, sw/2, sw*0.22, 0, 0, Math.PI*2); ctx.fill();
+          }
+        }
+
+        if (biome === 'wetland' || actionId === 'restore_wetland') {
+          var reedCount = Math.round(vegHealth * 28);
+          ctx.strokeStyle = lerpColor([140,124,62], [22,163,74], vegHealth); ctx.lineWidth = 2.5;
+          for (var ri = 0; ri < reedCount; ri++) {
+            var rrx = w * (0.28 + seeded(ri + 210) * 0.44), rry = h * (0.64 + seeded(ri + 220) * 0.3);
+            for (var rb = -1; rb <= 1; rb++) {
+              ctx.beginPath(); ctx.moveTo(rrx + rb*4, rry); ctx.lineTo(rrx + rb*7, rry - (22 + vegHealth*18)); ctx.stroke();
+            }
+          }
+        }
+
+        if (actionId === 'install_renewables' && isPos && p > 0.05) {
+          var rowCount = Math.round(2 + p * 5);
+          for (var sr = 0; sr < rowCount; sr++) {
+            var spx = w * (0.68 + (sr % 3) * 0.08), spy = h * (0.66 + Math.floor(sr / 3) * 0.08);
+            ctx.fillStyle = '#0f172a'; ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(spx, spy); ctx.lineTo(spx + 44, spy - 6); ctx.lineTo(spx + 54, spy + 12); ctx.lineTo(spx + 10, spy + 18); ctx.closePath(); ctx.fill(); ctx.stroke();
+          }
+        }
+
+        if (actionId === 'dump_plastic' && !isPos && p > 0.03) {
+          var trashCount = Math.round(14 + p * 120);
+          for (var tr = 0; tr < trashCount; tr++) {
+            var dx = w * (0.04 + seeded(tr + 310) * 0.92), dy = h * (0.64 + seeded(tr + 320) * 0.32), sc = 0.75 + seeded(tr + 330) * 1.1;
+            ctx.save(); ctx.translate(dx, dy); ctx.rotate(seeded(tr + 340) * Math.PI);
+            ctx.fillStyle = tr % 3 === 0 ? '#e2e8f0' : tr % 3 === 1 ? '#f59e0b' : '#f87171';
+            ctx.fillRect(-7 * sc, -3.5 * sc, 14 * sc, 7 * sc); ctx.restore();
+          }
+        }
+
+        var birdCount = Math.round(Math.max(0, (vegHealth - 0.25) * 26));
+        if (birdCount > 0) drawFlyingBirds(ctx, w, h, birdCount, animSec);
+      }
+      ctx.restore();
+    }
+
+    function getVisualStageNarrative(actionId, locationName, year) {
+      var rounded = Math.round(year);
+      if (rounded === 0) return locationName + "의 현재(2026년) 기준 장면입니다. '100년 변화 재생'이나 연도 버튼을 눌러 변화를 확인하세요.";
+      var stageLabel = rounded < 35 ? '초기 변화 (' + rounded + '년)' : rounded < 65 ? '중기 전환 (' + rounded + '년)' : rounded < 90 ? '심화 단계 (' + rounded + '년)' : '100년 누적 (2126년)';
+      var map = {
+        plant_trees: stageLabel + ': 식재된 묘목이 숲으로 자라나며 수관이 빽빽해지고 조류가 되돌아옵니다.',
+        restore_forest: stageLabel + ': 훼손되었던 지표에 다층 원시림과 맑은 하천 수계가 단계적으로 재건되고 있습니다.',
+        cleanup_ocean: stageLabel + ': 표층 쓰레기가 걷히며 햇빛이 산호초까지 투과하고 어류 무리가 회복됩니다.',
+        restore_wetland: stageLabel + ': 습지 수로가 넓어지고 갈대·맹그로브가 무성해지며 수질이 맑아지고 있습니다.',
+        install_renewables: stageLabel + ': 풍력·태양광 청정 설비가 늘어나면서 연무가 걷히고 푸른 하늘과 숲이 어우러집니다.',
+        dump_plastic: stageLabel + ': 분해되지 않은 플라스틱 쓰레기가 지표와 물가에 쌓이며 풀과 토양이 메말라 갑니다.',
+        deforestation: stageLabel + ': 울창하던 나무들이 베어져 그루터기와 갈라진 황무지 토양이 드러나고 있습니다.',
+        build_factory: stageLabel + ': 대형 공장 굴뚝에서 매연이 뿜어져 나와 하늘이 누런 스모그로 덮이고 숲이 쇠퇴합니다.',
+        chemical_pollution: stageLabel + ': 독성 화학물질이 물길을 따라 녹황색 띠와 거품으로 번지며 수생태계가 황폐화됩니다.',
+        ocean_dumping: stageLabel + ': 투기된 폐기물과 유막이 해수면을 뒤덮으며 산호가 하얗게 백화되고 어류가 사라집니다.'
+      };
+      return map[actionId] || '';
+    }
+
+    /* =========================================================================
+     * 4. APPLICATION STATE & DOM CONTROLLER
+     * ========================================================================= */
+    var appState = {
+      location: PRESET_LOCATIONS[0],
+      locationQuery: '',
+      polarityTab: 'positive',
+      actionId: 'plant_trees',
+      quantity: 5000,
+      selectedYear: 100,
+      animatedYear: 100,
+      isPlaying: false,
+      compareMode: 'slider',
+      sliderPos: 52,
+      mapMode: '3d',
+      autoRotate: true,
+      simulation: null
+    };
+
+    function getSelectedAction() {
+      for (var i = 0; i < ENVIRONMENTAL_ACTIONS.length; i++) {
+        if (ENVIRONMENTAL_ACTIONS[i].id === appState.actionId) return ENVIRONMENTAL_ACTIONS[i];
+      }
+      return ENVIRONMENTAL_ACTIONS[0];
+    }
+
+    function recompute() {
+      appState.simulation = runSimulation(appState.location, getSelectedAction(), appState.quantity);
+      renderUI();
+      updateGlobeState();
+      render2DMap();
+      renderFilmstripThumbnails();
+    }
+
+    /* =========================================================================
+     * 5. 3D EARTH GLOBE (Three.js UMD CDN + Built-in Shaded 2D Globe Fallback)
+     * ========================================================================= */
+    var globeCtrl = {
+      focus: function () {},
+      resetCam: function () {},
+      updateTex: function () {},
+      setAutoRotate: function () {}
+    };
+
+    function initGlobe() {
+      var container = document.getElementById('globe-mount');
+      if (!window.THREE) {
+        initFallbackCanvasGlobe(container);
+        return;
+      }
+
+      var THREE = window.THREE;
+      var width = Math.max(container.clientWidth, 320);
+      var height = Math.max(container.clientHeight, 380);
+      var GLOBE_R = 2.0;
+
+      function latLngToVec3(lat, lng, radius, out) {
+        var phi = THREE.MathUtils.degToRad(90 - lat);
+        var theta = THREE.MathUtils.degToRad(lng + 180);
+        var x = -radius * Math.sin(phi) * Math.cos(theta);
+        var z = radius * Math.sin(phi) * Math.sin(theta);
+        var y = radius * Math.cos(phi);
+        return (out || new THREE.Vector3()).set(x, y, z);
+      }
+
+      function vec3ToLatLng(pt) {
+        var n = pt.clone().normalize();
+        var lat = 90 - THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(n.y, -1, 1)));
+        var theta = Math.atan2(n.z, -n.x);
+        var lng = THREE.MathUtils.radToDeg(theta) - 180;
+        if (lng < -180) lng += 360;
+        if (lng > 180) lng -= 360;
+        return { lat: lat, lng: lng };
+      }
+
+      var renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      } catch (e) {
+        initFallbackCanvasGlobe(container);
+        return;
+      }
+
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height);
+      renderer.domElement.style.display = 'block';
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      renderer.domElement.style.cursor = 'crosshair';
+      container.appendChild(renderer.domElement);
+
+      var scene = new THREE.Scene();
+      scene.background = new THREE.Color('#061014');
+      scene.fog = new THREE.FogExp2('#061014', 0.032);
+
+      var camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+      camera.position.copy(latLngToVec3(appState.location.lat, appState.location.lng, 5.5));
+
+      var hemi = new THREE.HemisphereLight('#7dd3fc', '#082f49', 1.0);
+      scene.add(hemi);
+      var keyL = new THREE.DirectionalLight('#fff7ed', 1.95);
+      keyL.position.set(7, 4.5, 6);
+      scene.add(keyL);
+      var rimL = new THREE.DirectionalLight('#38bdf8', 0.85);
+      rimL.position.set(-6, -3, -5);
+      scene.add(rimL);
+
+      var earthCanvas = document.createElement('canvas');
+      earthCanvas.width = 2048; earthCanvas.height = 1024;
+      var earthCtx = earthCanvas.getContext('2d');
+      var earthTex = new THREE.CanvasTexture(earthCanvas);
+      earthTex.encoding = THREE.sRGBEncoding;
+      earthTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+      function redrawTex() {
+        var yr = appState.selectedYear;
+        var pol = getSelectedAction().polarity;
+        var inten = appState.simulation ? appState.simulation.intensityFactor : 1.0;
+        var tNorm = yr / 100;
+        var auraColor = yr === 0 ? 'rgba(56,189,248,0.38)' : pol === 'positive'
+          ? 'rgba(16,185,129,' + (0.28 + tNorm * 0.48).toFixed(2) + ')'
+          : 'rgba(239,68,68,' + (0.28 + tNorm * 0.52).toFixed(2) + ')';
+        drawEquirectangularWorldMap(earthCtx, earthCanvas.width, earthCanvas.height, {
+          grid: true,
+          impactPoint: { lat: appState.location.lat, lng: appState.location.lng, radiusNorm: 0.3 + tNorm * 0.45 * Math.min(1.8, inten * 0.7), color: auraColor }
+        });
+        earthTex.needsUpdate = true;
+      }
+      redrawTex();
+      globeCtrl.updateTex = redrawTex;
+
+      var globeGroup = new THREE.Group();
+      scene.add(globeGroup);
+
+      var earthMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(GLOBE_R, 64, 48),
+        new THREE.MeshStandardMaterial({ map: earthTex, roughness: 0.68, metalness: 0.08 })
+      );
+      earthMesh.layers.enable(1);
+      globeGroup.add(earthMesh);
+
+      var atmosMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(GLOBE_R * 1.045, 48, 36),
+        new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
+          uniforms: { uColor: { value: new THREE.Color('#38bdf8') } },
+          vertexShader: 'varying vec3 vNormal; varying vec3 vViewPos; void main(){ vec4 mvPos = modelViewMatrix * vec4(position,1.0); vNormal = normalize(normalMatrix * normal); vViewPos = -mvPos.xyz; gl_Position = projectionMatrix * mvPos; }',
+          fragmentShader: 'uniform vec3 uColor; varying vec3 vNormal; varying vec3 vViewPos; void main(){ float rim = pow(0.68 - dot(vNormal, normalize(vViewPos)), 2.8); gl_FragColor = vec4(uColor, clamp(rim * 0.75, 0.0, 0.65)); }'
+        })
+      );
+      globeGroup.add(atmosMesh);
+
+      var orbitRing = new THREE.Mesh(
+        new THREE.TorusGeometry(GLOBE_R * 1.24, 0.005, 8, 128),
+        new THREE.MeshBasicMaterial({ color: '#1e4b5f', transparent: true, opacity: 0.5 })
+      );
+      orbitRing.rotation.x = Math.PI / 2 - 0.14;
+      orbitRing.rotation.y = 0.22;
+      scene.add(orbitRing);
+
+      // Stars
+      var starCount = 650, starPos = new Float32Array(starCount * 3);
+      for (var i = 0; i < starCount; i++) {
+        var r = 18 + Math.random() * 24, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+        starPos[i*3] = r * Math.sin(ph) * Math.cos(th);
+        starPos[i*3+1] = r * Math.sin(ph) * Math.sin(th);
+        starPos[i*3+2] = r * Math.cos(ph);
+      }
+      var starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: '#cbd5e1', size: 0.08, transparent: true, opacity: 0.65 })));
+
+      // Preset pins
+      var hotspotMeshes = [];
+      var pinGeo = new THREE.SphereGeometry(0.038, 12, 12);
+      PRESET_LOCATIONS.forEach(function (loc) {
+        var pin = new THREE.Mesh(pinGeo, new THREE.MeshStandardMaterial({
+          color: loc.isOcean ? '#38bdf8' : '#34d399',
+          emissive: loc.isOcean ? '#0284c7' : '#059669',
+          emissiveIntensity: 0.85, roughness: 0.3, metalness: 0.2
+        }));
+        latLngToVec3(loc.lat, loc.lng, GLOBE_R + 0.018, pin.position);
+        pin.userData.location = loc;
+        pin.layers.enable(1);
+        globeGroup.add(pin);
+        hotspotMeshes.push(pin);
+      });
+
+      // Composite 3D Beacon
+      var beaconGroup = new THREE.Group();
+      var baseDiscMat = new THREE.MeshBasicMaterial({ color: '#10b981', side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+      var baseDisc = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.072, 32), baseDiscMat);
+      baseDisc.rotation.x = -Math.PI / 2; baseDisc.position.y = 0.005;
+
+      var mastGeo = new THREE.CylinderGeometry(0.008, 0.012, 0.19, 12); mastGeo.translate(0, 0.095, 0);
+      var mast = new THREE.Mesh(mastGeo, new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.8, roughness: 0.25 }));
+
+      var tipGeo = new THREE.SphereGeometry(0.038, 16, 16); tipGeo.translate(0, 0.2, 0);
+      var tipMat = new THREE.MeshStandardMaterial({ color: '#10b981', emissive: '#10b981', emissiveIntensity: 1.4, roughness: 0.2 });
+      var tip = new THREE.Mesh(tipGeo, tipMat);
+
+      var pulseRingMat = new THREE.MeshBasicMaterial({ color: '#34d399', side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false });
+      var pulseRing = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.115, 36), pulseRingMat);
+      pulseRing.rotation.x = -Math.PI / 2; pulseRing.position.y = 0.008;
+
+      beaconGroup.add(baseDisc, mast, tip, pulseRing);
+      globeGroup.add(beaconGroup);
+
+      var _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+      function positionBeacon(lat, lng) {
+        latLngToVec3(lat, lng, GLOBE_R, _v1);
+        beaconGroup.position.copy(_v1);
+        _v2.copy(_v1).normalize();
+        beaconGroup.quaternion.setFromUnitVectors(_up, _v2);
+      }
+      positionBeacon(appState.location.lat, appState.location.lng);
+
+      var desiredCamTargetPos = null;
+      var controls;
+      if (typeof THREE.OrbitControls === 'function') {
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enablePan = false;
+        controls.minDistance = 3.1;
+        controls.maxDistance = 8.5;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.rotateSpeed = 0.65;
+        controls.addEventListener('start', function () { desiredCamTargetPos = null; });
+      } else {
+        // Lightweight built-in spherical drag/wheel controller if OrbitControls CDN is unavailable
+        var camSph = new THREE.Spherical().setFromVector3(camera.position);
+        var dragActive = false, prevX = 0, prevY = 0;
+        renderer.domElement.addEventListener('pointerdown', function (ev) {
+          dragActive = true; prevX = ev.clientX; prevY = ev.clientY; desiredCamTargetPos = null;
+        });
+        window.addEventListener('pointermove', function (ev) {
+          if (!dragActive) return;
+          var dx = ev.clientX - prevX, dy = ev.clientY - prevY;
+          prevX = ev.clientX; prevY = ev.clientY;
+          camSph.theta -= dx * 0.0055;
+          camSph.phi = THREE.MathUtils.clamp(camSph.phi - dy * 0.0055, 0.25, Math.PI - 0.25);
+          camera.position.setFromSpherical(camSph);
+        });
+        window.addEventListener('pointerup', function () { dragActive = false; });
+        renderer.domElement.addEventListener('wheel', function (ev) {
+          ev.preventDefault();
+          camSph.setFromVector3(camera.position);
+          camSph.radius = THREE.MathUtils.clamp(camSph.radius + ev.deltaY * 0.003, 3.1, 8.5);
+          camera.position.setFromSpherical(camSph);
+        }, { passive: false });
+        controls = {
+          autoRotate: false,
+          autoRotateSpeed: 0.45,
+          update: function () {
+            camSph.setFromVector3(camera.position);
+            if (controls.autoRotate && !dragActive && !desiredCamTargetPos) {
+              camSph.theta += 0.0022;
+              camera.position.setFromSpherical(camSph);
+            }
+            camera.lookAt(0, 0, 0);
+          }
+        };
+      }
+
+      globeCtrl.focus = function (lat, lng) {
+        positionBeacon(lat, lng);
+        var dist = THREE.MathUtils.clamp(camera.position.length(), 4.2, 6.2);
+        desiredCamTargetPos = latLngToVec3(lat, lng, dist, new THREE.Vector3());
+      };
+      globeCtrl.resetCam = function () {
+        desiredCamTargetPos = latLngToVec3(appState.location.lat, appState.location.lng, 5.4, new THREE.Vector3());
+      };
+
+      var raycaster = new THREE.Raycaster();
+      raycaster.layers.set(1);
+      var pointer = new THREE.Vector2();
+      var downPos = { x: 0, y: 0 }, lastHover = 0;
+
+      function updatePtr(ev) {
+        var rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      }
+
+      renderer.domElement.addEventListener('pointerdown', function (ev) { downPos = { x: ev.clientX, y: ev.clientY }; });
+      renderer.domElement.addEventListener('pointermove', function (ev) {
+        var now = performance.now();
+        if (now - lastHover < 60) return;
+        lastHover = now;
+        updatePtr(ev);
+        raycaster.setFromCamera(pointer, camera);
+        var hits = raycaster.intersectObject(earthMesh, false);
+        var hoverEl = document.getElementById('globe-hover-coords');
+        if (hits.length > 0) {
+          var ll = vec3ToLatLng(globeGroup.worldToLocal(hits[0].point.clone()));
+          hoverEl.textContent = '커서: ' + ll.lat.toFixed(1) + '°, ' + ll.lng.toFixed(1) + '°';
+        } else {
+          hoverEl.textContent = '지구본 또는 지도를 클릭하여 위치 선택';
+        }
+      });
+
+      renderer.domElement.addEventListener('pointerup', function (ev) {
+        if (Math.hypot(ev.clientX - downPos.x, ev.clientY - downPos.y) > 6) return;
+        updatePtr(ev);
+        raycaster.setFromCamera(pointer, camera);
+        var pinHits = raycaster.intersectObjects(hotspotMeshes, false);
+        if (pinHits.length > 0) {
+          appState.location = pinHits[0].object.userData.location;
+          recompute();
+          return;
+        }
+        var globeHits = raycaster.intersectObject(earthMesh, false);
+        if (globeHits.length > 0) {
+          var ll = vec3ToLatLng(globeGroup.worldToLocal(globeHits[0].point.clone()));
+          appState.location = classifyCoordinates(ll.lat, ll.lng);
+          recompute();
+        }
+      });
+
+      if (window.ResizeObserver) {
+        new ResizeObserver(function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            var w = Math.max(entries[i].contentRect.width, 280);
+            var h = Math.max(entries[i].contentRect.height, 300);
+            camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+          }
+        }).observe(container);
+      }
+
+      var clock = new THREE.Clock();
+      var _curSph = new THREE.Spherical(), _tgtSph = new THREE.Spherical();
+      function animate() {
+        requestAnimationFrame(animate);
+        if (appState.mapMode !== '3d') return;
+        var delta = Math.min(clock.getDelta(), 0.1), elapsed = clock.getElapsedTime();
+        var yr = appState.selectedYear, tNorm = yr / 100;
+        var isPos = getSelectedAction().polarity === 'positive';
+        var activeHex = yr === 0 ? '#38bdf8' : isPos ? '#10b981' : '#ef4444';
+        baseDiscMat.color.set(activeHex); tipMat.color.set(activeHex); tipMat.emissive.set(activeHex); pulseRingMat.color.set(activeHex);
+
+        var auraSc = 1 + tNorm * 1.4 + Math.sin(elapsed * 2.4) * 0.15;
+        pulseRing.scale.set(auraSc, auraSc, 1);
+        pulseRingMat.opacity = 0.25 + (1 - Math.abs(Math.sin(elapsed * 2.4))) * 0.35;
+
+        if (desiredCamTargetPos) {
+          _curSph.setFromVector3(camera.position); _tgtSph.setFromVector3(desiredCamTargetPos);
+          var dTh = _tgtSph.theta - _curSph.theta;
+          while (dTh > Math.PI) dTh -= Math.PI * 2;
+          while (dTh < -Math.PI) dTh += Math.PI * 2;
+          _tgtSph.theta = _curSph.theta + dTh;
+          var a = 1 - Math.exp(-5.5 * delta);
+          _curSph.theta += (_tgtSph.theta - _curSph.theta) * a;
+          _curSph.phi += (_tgtSph.phi - _curSph.phi) * a;
+          _curSph.radius += (_tgtSph.radius - _curSph.radius) * a;
+          camera.position.setFromSpherical(_curSph);
+          if (camera.position.distanceTo(desiredCamTargetPos) < 0.04) desiredCamTargetPos = null;
+        } else {
+          controls.autoRotate = appState.autoRotate;
+          controls.autoRotateSpeed = 0.45;
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
+
+    function initFallbackCanvasGlobe(container) {
+      // Offline / No-CDN shaded interactive 2D globe fallback
+      var canvas = document.createElement('canvas');
+      canvas.width = 760; canvas.height = 540;
+      canvas.style.width = '100%'; canvas.style.height = '100%'; canvas.style.cursor = 'crosshair';
+      container.appendChild(canvas);
+      var ctx = canvas.getContext('2d');
+      var rotLng = appState.location.lng;
+      var dragging = false, downX = 0, downY = 0, moved = 0;
+
+      function project(lat, lng, cx, cy, r) {
+        var dLon = ((lng - rotLng + 540) % 360) - 180;
+        if (Math.abs(dLon) > 90) return null;
+        var latR = (lat * Math.PI) / 180, lonR = (dLon * Math.PI) / 180;
+        return { x: cx + r * Math.cos(latR) * Math.sin(lonR), y: cy - r * Math.sin(latR) };
+      }
+
+      function draw() {
+        var w = canvas.width, h = canvas.height, r = Math.min(w, h) * 0.38, cx = w / 2, cy = h / 2;
+        ctx.fillStyle = '#061014'; ctx.fillRect(0, 0, w, h);
+        var grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
+        grad.addColorStop(0, '#0ea5e9'); grad.addColorStop(0.7, '#0c4a6e'); grad.addColorStop(1, '#082f49');
+        ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = grad; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        ctx.fillStyle = '#2e7d5b'; ctx.strokeStyle = 'rgba(110,231,183,0.4)';
+        for (var i = 0; i < LAND_POLYGONS.length; i++) {
+          var pts = LAND_POLYGONS[i].coords;
+          ctx.beginPath();
+          var any = false;
+          for (var j = 0; j < pts.length; j++) {
+            var dLon = ((pts[j][0] - rotLng + 540) % 360) - 180;
+            var latR = (pts[j][1] * Math.PI) / 180, lonR = (dLon * Math.PI) / 180;
+            var px = cx + r * Math.cos(latR) * Math.sin(lonR);
+            var py = cy - r * Math.sin(latR);
+            if (!any) { ctx.moveTo(px, py); any = true; } else ctx.lineTo(px, py);
+          }
+          ctx.closePath(); ctx.fill();
+        }
+        // Preset dots & active beacon
+        PRESET_LOCATIONS.forEach(function (loc) {
+          var p = project(loc.lat, loc.lng, cx, cy, r);
+          if (!p) return;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = loc.isOcean ? '#38bdf8' : '#34d399'; ctx.fill();
+        });
+        var sel = project(appState.location.lat, appState.location.lng, cx, cy, r);
+        if (sel) {
+          var pol = getSelectedAction().polarity;
+          var col = appState.selectedYear === 0 ? '#38bdf8' : pol === 'positive' ? '#10b981' : '#ef4444';
+          ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(sel.x, sel.y, 11, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = col;
+          ctx.beginPath(); ctx.arc(sel.x, sel.y, 4.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(56,189,248,0.45)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      }
+      draw();
+      globeCtrl.focus = function (lat, lng) { rotLng = lng; draw(); };
+      globeCtrl.resetCam = function () { rotLng = appState.location.lng; draw(); };
+      globeCtrl.updateTex = draw;
+
+      canvas.addEventListener('pointerdown', function (ev) {
+        dragging = true; downX = ev.clientX; downY = ev.clientY; moved = 0;
+      });
+      window.addEventListener('pointermove', function (ev) {
+        if (!dragging) return;
+        var dx = ev.clientX - downX;
+        moved += Math.abs(dx) + Math.abs(ev.clientY - downY);
+        downX = ev.clientX; downY = ev.clientY;
+        rotLng -= dx * 0.45;
+        draw();
+      });
+      window.addEventListener('pointerup', function () { dragging = false; });
+      canvas.addEventListener('click', function (ev) {
+        if (moved > 8) return;
+        var rect = canvas.getBoundingClientRect();
+        var x = ((ev.clientX - rect.left) / rect.width) * canvas.width - canvas.width / 2;
+        var y = ((ev.clientY - rect.top) / rect.height) * canvas.height - canvas.height / 2;
+        var r = Math.min(canvas.width, canvas.height) * 0.38;
+        if (Math.hypot(x, y) <= r) {
+          var lat = Math.asin(-y / r) * (180 / Math.PI);
+          var lng = rotLng + Math.atan2(x, Math.sqrt(Math.max(1, r * r - x * x - y * y))) * (180 / Math.PI);
+          appState.location = classifyCoordinates(lat, lng);
+          recompute();
+        }
+      });
+    }
+
+    function updateGlobeState() {
+      globeCtrl.focus(appState.location.lat, appState.location.lng);
+      globeCtrl.updateTex();
+    }
+
+    function render2DMap() {
+      if (appState.mapMode !== '2d') return;
+      var canvas = document.getElementById('map2d-canvas');
+      var ctx = canvas.getContext('2d');
+      var w = canvas.width, h = canvas.height, yr = appState.selectedYear, tNorm = yr / 100;
+      var pol = getSelectedAction().polarity;
+      var auraColor = yr === 0 ? 'rgba(56,189,248,0.45)' : pol === 'positive'
+        ? 'rgba(16,185,129,' + (0.35 + tNorm * 0.45).toFixed(2) + ')'
+        : 'rgba(239,68,68,' + (0.35 + tNorm * 0.45).toFixed(2) + ')';
+      drawEquirectangularWorldMap(ctx, w, h, {
+        grid: true,
+        impactPoint: { lat: appState.location.lat, lng: appState.location.lng, radiusNorm: 0.35 + tNorm * 0.45 * Math.min(1.8, appState.simulation.intensityFactor * 0.7), color: auraColor }
+      });
+      var lonToX = function (lon) { return ((lon + 180) / 360) * w; };
+      var latToY = function (lat) { return ((90 - lat) / 180) * h; };
+      PRESET_LOCATIONS.forEach(function (loc) {
+        ctx.beginPath(); ctx.arc(lonToX(loc.lng), latToY(loc.lat), loc.id === appState.location.id ? 7 : 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = loc.isOcean ? '#38bdf8' : '#34d399'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#061014'; ctx.stroke();
+      });
+      var sx = lonToX(appState.location.lng), sy = latToY(appState.location.lat);
+      ctx.strokeStyle = yr === 0 ? '#38bdf8' : pol === 'positive' ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, 13, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx-19,sy); ctx.lineTo(sx-7,sy); ctx.moveTo(sx+7,sy); ctx.lineTo(sx+19,sy); ctx.moveTo(sx,sy-19); ctx.lineTo(sx,sy-7); ctx.moveTo(sx,sy+7); ctx.lineTo(sx,sy+19); ctx.stroke();
+    }
+
+    /* =========================================================================
+     * 6. SVG CHARTS & FILMSTRIP THUMBNAILS
+     * ========================================================================= */
+    function renderFilmstripThumbnails() {
+      var grid = document.getElementById('filmstrip-grid');
+      var sim = appState.simulation;
+      var isPos = sim.action.polarity === 'positive';
+      grid.innerHTML = '';
+
+      TIMELINE_YEARS.forEach(function (yr) {
+        var active = yr === appState.selectedYear;
+        var snap = sim.snapshots[yr];
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'thumb-card' + (active ? (isPos || yr === 0 ? ' active-pos' : ' active-neg') : '');
+        btn.onclick = function () {
+          appState.isPlaying = false;
+          appState.selectedYear = yr;
+          renderUI();
+          updateGlobeState();
+          render2DMap();
+        };
+
+        var wrap = document.createElement('div'); wrap.className = 'thumb-canvas-wrap';
+        var cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; cv.className = 'thumb-canvas';
+        renderEcologicalDiorama(cv.getContext('2d'), 320, 180, {
+          actionId: sim.action.id, biome: sim.location.biome, locationId: sim.location.id,
+          yearFloat: yr, intensityFactor: sim.intensityFactor, animTimeSec: 1.5
+        });
+        wrap.appendChild(cv);
+
+        var meta = document.createElement('div'); meta.className = 'thumb-meta';
+        var yrSpan = document.createElement('span'); yrSpan.className = 'font-mono'; yrSpan.style.fontWeight = '600'; yrSpan.style.color = active ? '#fff' : '#cbd5e1';
+        yrSpan.textContent = yr + '년 (' + (2026 + yr) + ')';
+        var scSpan = document.createElement('span'); scSpan.className = 'font-mono ' + (yr === 0 ? 'c-sky' : isPos ? 'c-emerald' : 'c-amber');
+        scSpan.textContent = snap.overallHealthScore + '점';
+        meta.appendChild(yrSpan); meta.appendChild(scSpan);
+
+        btn.appendChild(wrap); btn.appendChild(meta);
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderCharts(sim) {
+      var s0 = sim.snapshots[0], sT = sim.snapshots[appState.selectedYear];
+      var isPos = sim.action.polarity === 'positive';
+
+      // Trajectory SVG
+      var svg = document.getElementById('trajectory-svg');
+      var W = 620, H = 260, pL = 44, pR = 24, pT = 20, pB = 34, iW = W - pL - pR, iH = H - pT - pB;
+      var xFn = function (yr) { return pL + (yr / 100) * iW; };
+      var yFn = function (v) { return pT + ((100 - v) / 100) * iH; };
+      var series = [
+        { key: 'airQualityIndex', label: '대기질', color: '#38bdf8' },
+        { key: 'waterQualityIndex', label: '수질', color: '#06b6d4' },
+        { key: 'soilHealthIndex', label: '토양', color: '#10b981' },
+        { key: 'biodiversityIndex', label: '생물다양성', color: '#a7f3d0' },
+        { key: 'ecosystemScore', label: '생태계', color: '#fbbf24' },
+        { key: 'ghgStabilityIndex', label: '탄소안정성', color: '#818cf8' }
+      ];
+
+      var html = '';
+      [0, 25, 50, 75, 100].forEach(function (val) {
+        var y = yFn(val);
+        html += '<line x1="' + pL + '" y1="' + y + '" x2="' + (W - pR) + '" y2="' + y + '" stroke="rgba(148,163,184,0.14)" ' + (val === 50 ? 'stroke-dasharray="4 4"' : '') + '/>';
+        html += '<text x="' + (pL - 8) + '" y="' + (y + 4) + '" text-anchor="end" fill="#94a3b8" font-size="10" font-family="IBM Plex Mono, monospace">' + val + '</text>';
+      });
+
+      TIMELINE_YEARS.forEach(function (yr) {
+        var x = xFn(yr), act = yr === appState.selectedYear;
+        html += '<g data-yr="' + yr + '" style="cursor:pointer;">';
+        html += '<line x1="' + x + '" y1="' + pT + '" x2="' + x + '" y2="' + (H - pB) + '" stroke="' + (act ? 'rgba(16,185,129,0.55)' : 'rgba(148,163,184,0.12)') + '" stroke-width="' + (act ? 2 : 1) + '"/>';
+        html += '<text x="' + x + '" y="' + (H - 12) + '" text-anchor="middle" fill="' + (act ? '#6ee7b7' : '#94a3b8') + '" font-size="11" font-weight="' + (act ? '600' : '400') + '" font-family="IBM Plex Mono, monospace">' + yr + '년 (' + (2026 + yr) + ')</text>';
+        html += '</g>';
+      });
+
+      series.forEach(function (s) {
+        var pts = TIMELINE_YEARS.map(function (yr) { return xFn(yr).toFixed(1) + ',' + yFn(sim.snapshots[yr][s.key]).toFixed(1); }).join(' ');
+        html += '<polyline fill="none" stroke="' + s.color + '" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" points="' + pts + '"/>';
+        TIMELINE_YEARS.forEach(function (yr) {
+          var cx = xFn(yr), cy = yFn(sim.snapshots[yr][s.key]);
+          html += '<circle data-yr="' + yr + '" cx="' + cx + '" cy="' + cy + '" r="' + (yr === appState.selectedYear ? 4.8 : 3) + '" fill="' + s.color + '" stroke="#061014" stroke-width="1.2" style="cursor:pointer;"/>';
+        });
+      });
+
+      svg.innerHTML = html;
+      svg.querySelectorAll('[data-yr]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          appState.isPlaying = false;
+          appState.selectedYear = Number(el.getAttribute('data-yr'));
+          renderUI(); updateGlobeState(); render2DMap(); renderFilmstripThumbnails();
+        });
+      });
+
+      var legEl = document.getElementById('trajectory-legend');
+      legEl.innerHTML = series.map(function (s) {
+        return '<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:12px;height:2px;background:' + s.color + ';display:inline-block;"></span><span>' + s.label + '</span></span>';
+      }).join('');
+
+      var ghgEl = document.getElementById('chart-ghg-total');
+      ghgEl.className = sT.cumulativeGhgDeltaTons <= 0 ? 'c-emerald' : 'c-rose';
+      ghgEl.textContent = (sT.cumulativeGhgDeltaTons > 0 ? '+' : '') + sT.cumulativeGhgDeltaTons.toLocaleString() + ' tCO₂e';
+
+      // Radar SVG
+      var rSvg = document.getElementById('radar-svg');
+      var cx = 135, cy = 135, R = 86;
+      var axes = [
+        { label: '대기질', v0: s0.airQualityIndex, vT: sT.airQualityIndex },
+        { label: '수질', v0: s0.waterQualityIndex, vT: sT.waterQualityIndex },
+        { label: '토양', v0: s0.soilHealthIndex, vT: sT.soilHealthIndex },
+        { label: '생물다양성', v0: s0.biodiversityIndex, vT: sT.biodiversityIndex },
+        { label: '생태계', v0: s0.ecosystemScore, vT: sT.ecosystemScore },
+        { label: '탄소균형', v0: s0.ghgStabilityIndex, vT: sT.ghgStabilityIndex }
+      ];
+      function polyPts(vals) {
+        return vals.map(function (v, idx) {
+          var ang = (Math.PI * 2 * idx) / vals.length - Math.PI / 2;
+          var rad = (v / 100) * R;
+          return (cx + Math.cos(ang) * rad).toFixed(1) + ',' + (cy + Math.sin(ang) * rad).toFixed(1);
+        }).join(' ');
+      }
+      var rHtml = '';
+      [25, 50, 75, 100].forEach(function (lvl) {
+        rHtml += '<polygon points="' + polyPts([lvl,lvl,lvl,lvl,lvl,lvl]) + '" fill="none" stroke="rgba(148,163,184,0.16)" stroke-width="1"/>';
+      });
+      axes.forEach(function (ax, idx) {
+        var ang = (Math.PI * 2 * idx) / axes.length - Math.PI / 2;
+        var x2 = cx + Math.cos(ang) * R, y2 = cy + Math.sin(ang) * R;
+        var lx = cx + Math.cos(ang) * (R + 22), ly = cy + Math.sin(ang) * (R + 22);
+        rHtml += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x2 + '" y2="' + y2 + '" stroke="rgba(148,163,184,0.2)"/>';
+        rHtml += '<text x="' + lx + '" y="' + (ly + 3) + '" text-anchor="middle" fill="#cbd5e1" font-size="10">' + ax.label + '</text>';
+      });
+      rHtml += '<polygon points="' + polyPts(axes.map(function (a) { return a.v0; })) + '" fill="rgba(56,189,248,0.14)" stroke="#38bdf8" stroke-width="1.6" stroke-dasharray="4 3"/>';
+      rHtml += '<polygon points="' + polyPts(axes.map(function (a) { return a.vT; })) + '" fill="' + (isPos ? 'rgba(16,185,129,0.24)' : 'rgba(245,158,11,0.24)') + '" stroke="' + (isPos ? '#10b981' : '#f59e0b') + '" stroke-width="2"/>';
+      rSvg.innerHTML = rHtml;
+
+      document.getElementById('radar-title').textContent = '생태계 균형 다각 비교 (0년 vs ' + appState.selectedYear + '년 후)';
+      document.getElementById('radar-future-line').style.background = isPos ? '#10b981' : '#f59e0b';
+      document.getElementById('radar-future-label').textContent = '예상(' + (2026 + appState.selectedYear) + ')';
+      document.getElementById('radar-co2-label').textContent = 'CO₂ ' + sT.estimatedAmbientCo2Ppm + ' ppm';
+    }
+
+    /* =========================================================================
+     * 7. DOM RENDERING & EVENT BINDING
+     * ========================================================================= */
+    function renderUI() {
+      var sim = appState.simulation;
+      var loc = sim.location, act = sim.action;
+      var isPos = act.polarity === 'positive';
+      var s0 = sim.snapshots[0], s100 = sim.snapshots[100], sT = sim.snapshots[appState.selectedYear];
+      var d100 = Number((s100.overallHealthScore - s0.overallHealthScore).toFixed(1));
+
+      // Hero & HUD
+      document.getElementById('hero-compat-label').textContent = sim.dynamics.compatibilityLabel;
+      document.getElementById('hero-compat-label').className = isPos ? 'c-emerald' : 'c-amber';
+      document.getElementById('sum-base').textContent = s0.overallHealthScore;
+      document.getElementById('sum-future').textContent = s100.overallHealthScore;
+      document.getElementById('sum-future').className = 'summary-item-val ' + (d100 >= 0 ? 'c-emerald' : 'c-amber');
+      document.getElementById('sum-delta').textContent = (d100 >= 0 ? '+' : '') + d100;
+      document.getElementById('sum-delta').className = 'summary-item-val ' + (d100 >= 0 ? 'c-emerald' : 'c-rose');
+
+      document.getElementById('hud-region').textContent = loc.countryOrRegion;
+      document.getElementById('hud-coords').textContent = loc.lat.toFixed(1) + '°, ' + loc.lng.toFixed(1) + '°';
+      document.getElementById('hud-loc-name').textContent = loc.nameKo;
+      document.getElementById('loc-terrain-badge').textContent = loc.isOcean ? '해양' : '육상';
+
+      // Location List
+      var q = appState.locationQuery.trim().toLowerCase();
+      var locs = !q ? PRESET_LOCATIONS : PRESET_LOCATIONS.filter(function (l) {
+        return l.nameKo.toLowerCase().indexOf(q) >= 0 || l.countryOrRegion.toLowerCase().indexOf(q) >= 0;
+      });
+      var locListEl = document.getElementById('location-list');
+      locListEl.innerHTML = '';
+      locs.forEach(function (l) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'choice-btn' + (l.id === loc.id ? ' selected-pos' : '');
+        btn.innerHTML = '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">' + l.nameKo + '</span><span style="font-size:0.7rem;color:var(--text-muted);flex-shrink:0;">' + (l.isOcean ? '해양' : '육지') + '</span>';
+        btn.onclick = function () { appState.location = l; recompute(); };
+        locListEl.appendChild(btn);
+      });
+
+      // Action Tabs & List
+      document.getElementById('tab-pos-btn').className = 'seg-btn' + (appState.polarityTab === 'positive' ? ' active' : '');
+      document.getElementById('tab-neg-btn').className = 'seg-btn' + (appState.polarityTab === 'negative' ? ' active-amber' : '');
+      var actListEl = document.getElementById('action-list');
+      actListEl.innerHTML = '';
+      ENVIRONMENTAL_ACTIONS.filter(function (a) { return a.polarity === appState.polarityTab; }).forEach(function (a) {
+        var active = a.id === act.id;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'choice-btn' + (active ? (a.polarity === 'positive' ? ' selected-pos' : ' selected-neg') : '');
+        btn.innerHTML = '<span style="font-weight:500;">' + a.nameKo + '</span><span class="font-mono" style="font-size:0.7rem;color:var(--text-muted);">단위: ' + a.unitKo + '</span>';
+        btn.onclick = function () {
+          appState.actionId = a.id;
+          appState.quantity = a.defaultQuantity;
+          recompute();
+        };
+        actListEl.appendChild(btn);
+      });
+
+      // Quantity Controls
+      document.getElementById('qty-range-hint').textContent = act.minQuantity.toLocaleString() + ' ~ ' + act.maxQuantity.toLocaleString() + ' ' + act.unitKo;
+      var qInput = document.getElementById('quantity-input');
+      qInput.min = act.minQuantity; qInput.max = act.maxQuantity; qInput.value = sim.quantity;
+      document.getElementById('qty-unit-badge').textContent = act.unitKo;
+
+      var minLog = Math.log10(act.minQuantity), maxLog = Math.log10(act.maxQuantity);
+      var curLog = Math.log10(clamp(sim.quantity, act.minQuantity, act.maxQuantity));
+      document.getElementById('quantity-slider').value = ((curLog - minLog) / (maxLog - minLog)) * 100;
+
+      var presetsEl = document.getElementById('qty-presets');
+      presetsEl.innerHTML = '';
+      act.quickScales.forEach(function (ps) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'preset-btn' + (sim.quantity === ps ? ' active' : '');
+        btn.textContent = ps.toLocaleString();
+        btn.onclick = function () { appState.quantity = ps; recompute(); };
+        presetsEl.appendChild(btn);
+      });
+
+      // Visual Comparison Stage Headers
+      document.getElementById('vis-climate-zone').textContent = loc.observedBaseline.climateZone;
+      document.getElementById('vis-action-label').textContent = act.nameKo + ' (' + sim.quantity.toLocaleString() + ' ' + act.unitKo + ')';
+      document.getElementById('tag-base-score').textContent = '건강지수 ' + s0.overallHealthScore;
+      document.getElementById('side-base-score').textContent = '지수 ' + s0.overallHealthScore;
+      document.getElementById('side-base-sub').textContent = '대기질 ' + s0.airQualityIndex + ' · 수질 ' + s0.waterQualityIndex;
+      document.getElementById('side-base-bio').textContent = '생물다양성 ' + s0.biodiversityIndex + '%';
+
+      document.getElementById('side-future-sub').textContent = '대기질 ' + sT.airQualityIndex + ' · 수질 ' + sT.waterQualityIndex;
+      document.getElementById('side-future-bio').textContent = '생물다양성 ' + sT.biodiversityIndex + '%';
+      document.getElementById('play-timeline-btn').textContent = appState.isPlaying ? '재생 정지' : '100년 변화 재생';
+      document.getElementById('timeline-progress-fill').style.background = isPos ? '#34d399' : '#fbbf24';
+
+      // 6 Metric Cards
+      document.getElementById('metrics-year-label').textContent = (2026 + appState.selectedYear) + '년 (' + appState.selectedYear + '년 후) 기준';
+      document.getElementById('metrics-heading').textContent = '현재 관측 기준선 vs ' + appState.selectedYear + '년 후 시뮬레이션 추정';
+      document.getElementById('legend-sim-swatch').style.background = isPos ? '#34d399' : '#fbbf24';
+
+      var metrics = [
+        { label: '대기질 변화', sub: '초미세먼지(PM2.5) 추정', b: s0.airQualityIndex, f: sT.airQualityIndex, bp: s0.pm25UgM3 + ' µg/m³', fp: sT.pm25UgM3 + ' µg/m³', unit: '점' },
+        { label: '수질 변화', sub: '용존산소(DO) 추정', b: s0.waterQualityIndex, f: sT.waterQualityIndex, bp: s0.dissolvedOxygenMgL + ' mg/L', fp: sT.dissolvedOxygenMgL + ' mg/L', unit: '점' },
+        { label: '토양 상태 변화', sub: '토양 유기탄소 함량', b: s0.soilHealthIndex, f: sT.soilHealthIndex, bp: s0.soilOrganicCarbonPct + '%', fp: sT.soilOrganicCarbonPct + '%', unit: '점' },
+        { label: '생물 다양성 변화', sub: '생물다양성 온전성(BII)', b: s0.biodiversityIndex, f: sT.biodiversityIndex, bp: s0.biodiversityIndex + '%', fp: sT.biodiversityIndex + '%', unit: '%' },
+        { label: '생태계 회복 탄력성', sub: '먹이사슬·서식지 안정도', b: s0.ecosystemScore, f: sT.ecosystemScore, bp: s0.ecosystemScore + ' / 100', fp: sT.ecosystemScore + ' / 100', unit: '점' },
+        { label: '온실가스 균형 변화', sub: '연간 순배출 변화량', b: s0.ghgStabilityIndex, f: sT.ghgStabilityIndex, bp: (loc.observedBaseline.baselineAnnualGhgTonsPerKm2 >= 0 ? '+' : '') + loc.observedBaseline.baselineAnnualGhgTonsPerKm2.toLocaleString() + ' tCO₂e/km²', fp: appState.selectedYear === 0 ? '변동 없음 (0 tCO₂e)' : (sT.annualGhgDeltaTons > 0 ? '+' : '') + sT.annualGhgDeltaTons.toLocaleString() + ' tCO₂e/yr', unit: '점' }
+      ];
+
+      var mGrid = document.getElementById('metrics-grid');
+      mGrid.innerHTML = metrics.map(function (m) {
+        var delta = Number((m.f - m.b).toFixed(1));
+        var imp = delta > 0.2, deg = delta < -0.2;
+        var dCls = imp ? 'c-emerald' : deg ? 'c-rose' : '';
+        var dTxt = imp ? '▲ +' + delta + ' 개선' : deg ? '▼ ' + delta + ' 악화' : '— 기준 유지';
+        var fBarCol = imp ? '#34d399' : deg ? '#fbbf24' : '#38bdf8';
+        return '<div class="metric-card">' +
+          '<div class="metric-head"><div><div class="metric-title">' + m.label + '</div><div class="metric-sub">' + m.sub + '</div></div><div class="metric-delta ' + dCls + '">' + dTxt + '</div></div>' +
+          '<div style="display:flex;flex-direction:column;gap:7px;">' +
+            '<div style="display:flex;justify-content:space-between;font-size:0.74rem;"><span style="color:var(--text-muted);">실제 기준 (2026)</span><span class="font-mono c-sky">' + m.b + m.unit + ' <span style="color:var(--text-dim);">(' + m.bp + ')</span></span></div>' +
+            '<div class="bar-track"><div class="bar-fill" style="width:' + m.b + '%;background:rgba(56,189,248,0.8);"></div></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:0.74rem;padding-top:4px;"><span style="color:var(--text-secondary);">시뮬레이션 (' + (2026 + appState.selectedYear) + ')</span><span class="font-mono ' + (imp ? 'c-emerald' : deg ? 'c-amber' : '') + '" style="font-weight:600;">' + m.f + m.unit + ' <span style="color:var(--text-muted);font-weight:400;">(' + m.fp + ')</span></span></div>' +
+            '<div class="bar-track"><div class="bar-fill" style="width:' + m.f + '%;background:' + fBarCol + ';"></div></div>' +
+          '</div></div>';
+      }).join('');
+
+      renderCharts(sim);
+
+      // Scientific Analysis & Provenance
+      document.getElementById('rep-loc-label').textContent = loc.nameKo;
+      document.getElementById('banner-compat').textContent = sim.dynamics.compatibilityLabel;
+      document.getElementById('banner-multipliers').textContent = '생태 반응 ' + sim.dynamics.effectMultiplier.toFixed(2) + '× · 탄소 가중 ' + sim.dynamics.carbonMultiplier.toFixed(2) + '×';
+      document.getElementById('banner-species').textContent = loc.keySpecies;
+
+      document.getElementById('rep-impact').textContent = sim.impactSummaryKo;
+      document.getElementById('rep-2126').textContent = sim.year2126OutlookKo;
+      document.getElementById('rep-ecosystem').textContent = sim.ecosystemImpactKo;
+      document.getElementById('rep-mitigation').innerHTML = sim.mitigationStrategiesKo.map(function (item, i) {
+        return '<li><span class="font-mono c-emerald" style="font-size:0.74rem;margin-top:3px;flex-shrink:0;">0' + (i + 1) + '.</span><span>' + item + '</span></li>';
+      }).join('');
+
+      document.getElementById('prov-desc').textContent = loc.description;
+      document.getElementById('prov-climate').textContent = loc.observedBaseline.climateZone;
+      document.getElementById('prov-co2').textContent = loc.observedBaseline.ambientCo2Ppm + ' ppm';
+      document.getElementById('prov-ref').textContent = loc.observedBaseline.dataReferenceNote;
+      document.getElementById('prov-assumptions').innerHTML = sim.assumptions.map(function (a) {
+        return '<li style="display:flex;gap:7px;"><span class="c-emerald font-mono">·</span><span>' + a + '</span></li>';
+      }).join('');
+    }
+
+    function bindEvents() {
+      function scrollToStage() {
+        if (appState.selectedYear === 0) {
+          appState.selectedYear = 100;
+          renderUI(); updateGlobeState(); render2DMap(); renderFilmstripThumbnails();
+        }
+        document.getElementById('visual-comparison').scrollIntoView({ behavior: 'smooth' });
+      }
+      document.getElementById('cta-jump-btn').onclick = scrollToStage;
+      document.getElementById('run-scroll-btn').onclick = scrollToStage;
+
+      document.getElementById('download-html-btn').onclick = function () {
+        var btn = document.getElementById('download-html-btn');
+        var lbl = document.getElementById('download-html-label');
+        btn.disabled = true;
+        lbl.textContent = '준비 중...';
+
+        function triggerSave(htmlContent) {
+          var blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'index.html';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+          lbl.textContent = '다운로드 완료';
+          setTimeout(function () {
+            lbl.textContent = 'index.html 다운로드';
+            btn.disabled = false;
+          }, 1800);
+        }
+
+        if (window.location.protocol !== 'file:' && window.fetch) {
+          var targetUrl = window.location.pathname && window.location.pathname.endsWith('.html')
+            ? window.location.pathname
+            : './index.html';
+          fetch(targetUrl, { cache: 'no-store' })
+            .then(function (res) {
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              return res.text();
+            })
+            .then(function (text) {
+              if (text.indexOf('<title>EARTH 2126') >= 0 && text.indexOf('/@vite/client') === -1) {
+                triggerSave(text);
+              } else {
+                triggerSave(PRISTINE_HTML);
+              }
+            })
+            .catch(function () {
+              triggerSave(PRISTINE_HTML);
+            });
+        } else {
+          triggerSave(PRISTINE_HTML);
+        }
+      };
+
+      document.getElementById('location-search').addEventListener('input', function (e) {
+        appState.locationQuery = e.target.value;
+        renderUI();
+      });
+
+      document.getElementById('tab-pos-btn').onclick = function () {
+        appState.polarityTab = 'positive';
+        if (getSelectedAction().polarity !== 'positive') {
+          var first = ENVIRONMENTAL_ACTIONS.find(function (a) { return a.polarity === 'positive'; });
+          appState.actionId = first.id; appState.quantity = first.defaultQuantity;
+        }
+        recompute();
+      };
+      document.getElementById('tab-neg-btn').onclick = function () {
+        appState.polarityTab = 'negative';
+        if (getSelectedAction().polarity !== 'negative') {
+          var first = ENVIRONMENTAL_ACTIONS.find(function (a) { return a.polarity === 'negative'; });
+          appState.actionId = first.id; appState.quantity = first.defaultQuantity;
+        }
+        recompute();
+      };
+
+      document.getElementById('quantity-input').addEventListener('input', function (e) {
+        var val = Number(e.target.value), act = getSelectedAction();
+        if (!isNaN(val) && val > 0) {
+          appState.quantity = clamp(val, act.minQuantity, act.maxQuantity);
+          recompute();
+        }
+      });
+
+      document.getElementById('quantity-slider').addEventListener('input', function (e) {
+        var act = getSelectedAction();
+        var minLog = Math.log10(act.minQuantity), maxLog = Math.log10(act.maxQuantity);
+        var raw = Math.pow(10, minLog + (Number(e.target.value) / 100) * (maxLog - minLog));
+        var rounded = raw < 20 ? Math.round(raw) : raw < 500 ? Math.round(raw / 5) * 5 : raw < 10000 ? Math.round(raw / 50) * 50 : Math.round(raw / 500) * 500;
+        appState.quantity = clamp(rounded, act.minQuantity, act.maxQuantity);
+        recompute();
+      });
+
+      // Globe 3D / 2D Map toggles
+      document.getElementById('mode-3d-btn').onclick = function () {
+        appState.mapMode = '3d';
+        document.getElementById('mode-3d-btn').className = 'seg-btn active';
+        document.getElementById('mode-2d-btn').className = 'seg-btn';
+        document.getElementById('globe-mount').style.display = 'block';
+        document.getElementById('map2d-wrap').style.display = 'none';
+        document.getElementById('globe-cam-controls').style.display = 'flex';
+      };
+      document.getElementById('mode-2d-btn').onclick = function () {
+        appState.mapMode = '2d';
+        document.getElementById('mode-2d-btn').className = 'seg-btn active';
+        document.getElementById('mode-3d-btn').className = 'seg-btn';
+        document.getElementById('globe-mount').style.display = 'none';
+        document.getElementById('map2d-wrap').style.display = 'flex';
+        document.getElementById('globe-cam-controls').style.display = 'none';
+        render2DMap();
+      };
+      document.getElementById('toggle-rotate-btn').onclick = function () {
+        appState.autoRotate = !appState.autoRotate;
+        document.getElementById('toggle-rotate-btn').textContent = appState.autoRotate ? '자전 중' : '정지';
+      };
+      document.getElementById('focus-cam-btn').onclick = function () { globeCtrl.resetCam(); };
+
+      document.getElementById('map2d-canvas').addEventListener('click', function (e) {
+        var cv = e.currentTarget, rect = cv.getBoundingClientRect();
+        var lng = ((e.clientX - rect.left) / rect.width) * 360 - 180;
+        var lat = 90 - ((e.clientY - rect.top) / rect.height) * 180;
+        for (var i = 0; i < PRESET_LOCATIONS.length; i++) {
+          if (Math.hypot(PRESET_LOCATIONS[i].lat - lat, PRESET_LOCATIONS[i].lng - lng) < 5.5) {
+            appState.location = PRESET_LOCATIONS[i]; recompute(); return;
+          }
+        }
+        appState.location = classifyCoordinates(lat, lng);
+        recompute();
+      });
+
+      // Compare Mode
+      document.getElementById('cmp-slider-btn').onclick = function () {
+        appState.compareMode = 'slider';
+        document.getElementById('cmp-slider-btn').className = 'seg-btn active';
+        document.getElementById('cmp-side-btn').className = 'seg-btn';
+        document.getElementById('compare-slider-wrap').style.display = 'block';
+        document.getElementById('compare-side-wrap').style.display = 'none';
+      };
+      document.getElementById('cmp-side-btn').onclick = function () {
+        appState.compareMode = 'side-by-side';
+        document.getElementById('cmp-side-btn').className = 'seg-btn active';
+        document.getElementById('cmp-slider-btn').className = 'seg-btn';
+        document.getElementById('compare-slider-wrap').style.display = 'none';
+        document.getElementById('compare-side-wrap').style.display = 'grid';
+      };
+
+      // Split Slider Dragging
+      var splitBox = document.getElementById('compare-slider-wrap');
+      var dragging = false;
+      function moveSplit(clientX) {
+        var rect = splitBox.getBoundingClientRect();
+        var pct = Math.max(4, Math.min(96, ((clientX - rect.left) / rect.width) * 100));
+        appState.sliderPos = pct;
+        document.getElementById('before-clip-layer').style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
+        document.getElementById('split-divider-line').style.left = pct + '%';
+      }
+      splitBox.addEventListener('pointerdown', function (e) { dragging = true; moveSplit(e.clientX); });
+      window.addEventListener('pointermove', function (e) { if (dragging) moveSplit(e.clientX); });
+      window.addEventListener('pointerup', function () { dragging = false; });
+
+      // Timeline Play / Reset
+      document.getElementById('play-timeline-btn').onclick = function () {
+        if (!appState.isPlaying && appState.selectedYear >= 100) {
+          appState.animatedYear = 0;
+          appState.selectedYear = 0;
+          renderUI(); updateGlobeState(); render2DMap(); renderFilmstripThumbnails();
+        }
+        appState.isPlaying = !appState.isPlaying;
+        document.getElementById('play-timeline-btn').textContent = appState.isPlaying ? '재생 정지' : '100년 변화 재생';
+      };
+      document.getElementById('reset-timeline-btn').onclick = function () {
+        appState.isPlaying = false;
+        appState.animatedYear = 0;
+        appState.selectedYear = 0;
+        renderUI(); updateGlobeState(); render2DMap(); renderFilmstripThumbnails();
+      };
+    }
+
+    /* =========================================================================
+     * 8. CONTINUOUS 60FPS DIORAMA LOOP
+     * ========================================================================= */
+    function startDioramaLoop() {
+      var lastT = performance.now();
+      var bSlider = document.getElementById('before-canvas-slider');
+      var fSlider = document.getElementById('future-canvas-slider');
+      var bSide = document.getElementById('before-canvas-side');
+      var fSide = document.getElementById('future-canvas-side');
+
+      function tick(now) {
+        var dt = Math.min((now - lastT) / 1000, 0.08);
+        lastT = now;
+        var animSec = now / 1000;
+
+        if (appState.isPlaying) {
+          var nextYr = appState.animatedYear + dt * 13.5;
+          if (nextYr >= 100) {
+            appState.animatedYear = 100;
+            appState.selectedYear = 100;
+            appState.isPlaying = false;
+            renderUI(); updateGlobeState(); render2DMap(); renderFilmstripThumbnails();
+          } else {
+            appState.animatedYear = nextYr;
+            var milestone = nextYr >= 88 ? 100 : nextYr >= 63 ? 75 : nextYr >= 38 ? 50 : nextYr >= 13 ? 25 : 0;
+            if (milestone !== appState.selectedYear) {
+              appState.selectedYear = milestone;
+              renderUI(); updateGlobeState(); render2DMap(); renderFilmstripThumbnails();
+            }
+          }
+        } else {
+          var diff = appState.selectedYear - appState.animatedYear;
+          if (Math.abs(diff) > 0.15) appState.animatedYear += diff * Math.min(1, dt * 8);
+          else appState.animatedYear = appState.selectedYear;
+        }
+
+        var sim = appState.simulation;
+        if (sim) {
+          var yrRound = Math.round(appState.animatedYear);
+          var isPos = sim.action.polarity === 'positive';
+          var snapCur = sim.snapshots[appState.selectedYear];
+
+          document.getElementById('vis-heading').textContent = sim.location.nameKo + ': 현재(2026년) vs ' + (2026 + yrRound) + '년(' + yrRound + '년 후)';
+          document.getElementById('tag-future-yr').textContent = yrRound + '년 후 예상 (' + (2026 + yrRound) + ')';
+          document.getElementById('tag-future-score').textContent = '건강지수 ' + snapCur.overallHealthScore;
+          document.getElementById('tag-future-score').className = 'font-mono ' + (yrRound === 0 ? 'c-sky' : isPos ? 'c-emerald' : 'c-amber');
+          document.getElementById('side-future-yr').textContent = yrRound + '년 후 예상 (' + (2026 + yrRound) + '년)';
+          document.getElementById('side-future-score').textContent = '지수 ' + snapCur.overallHealthScore;
+          document.getElementById('side-future-score').className = 'font-mono ' + (yrRound === 0 ? 'c-sky' : isPos ? 'c-emerald' : 'c-amber');
+          document.getElementById('stage-narrative-text').textContent = getVisualStageNarrative(sim.action.id, sim.location.nameKo, appState.animatedYear);
+          document.getElementById('timeline-elapsed-label').textContent = '시점별 단계를 클릭하거나 전체 100년 변화를 재생하세요 (현재 ' + yrRound + '년 경과)';
+          document.getElementById('timeline-progress-fill').style.width = Math.min(100, Math.max(0, appState.animatedYear)) + '%';
+
+          if (appState.compareMode === 'slider') {
+            renderEcologicalDiorama(bSlider.getContext('2d'), bSlider.width, bSlider.height, { actionId: sim.action.id, biome: sim.location.biome, locationId: sim.location.id, yearFloat: 0, intensityFactor: sim.intensityFactor, animTimeSec: animSec });
+            renderEcologicalDiorama(fSlider.getContext('2d'), fSlider.width, fSlider.height, { actionId: sim.action.id, biome: sim.location.biome, locationId: sim.location.id, yearFloat: appState.animatedYear, intensityFactor: sim.intensityFactor, animTimeSec: animSec });
+          } else {
+            renderEcologicalDiorama(bSide.getContext('2d'), bSide.width, bSide.height, { actionId: sim.action.id, biome: sim.location.biome, locationId: sim.location.id, yearFloat: 0, intensityFactor: sim.intensityFactor, animTimeSec: animSec });
+            renderEcologicalDiorama(fSide.getContext('2d'), fSide.width, fSide.height, { actionId: sim.action.id, biome: sim.location.biome, locationId: sim.location.id, yearFloat: appState.animatedYear, intensityFactor: sim.intensityFactor, animTimeSec: animSec });
+          }
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Boot
+    bindEvents();
+    recompute();
+    initGlobe();
+    startDioramaLoop();
+  })();
+  </script></body></html>
